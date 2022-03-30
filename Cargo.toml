@@ -1,0 +1,18 @@
+[package]
+name = "udf"
+version = "0.1.0"
+edition = "2018"
+
+[[bin]]
+name = "udf"
+required-features = ["clap"]
+
+[profile.release]
+panic = "abort"
+
+[dependencies]
+dataview = "0.1.2"
+clap = { version = "3.1", features = ["cargo"], optional = true }
+
+[dev-dependencies]
+urandom = "0.1"
