@@ -95,7 +95,7 @@ impl Dataset {
 	#[inline]
 	pub fn create(names: &[&str]) -> Dataset {
 		let mut ds = Dataset {
-			header: format::DatasetHeader::default(),
+			header: format::DatasetHeader { check: format::DatasetHeader::CHECK, ..Default::default() },
 			tables: Vec::new(),
 			storage: Vec::new(),
 		};
@@ -119,7 +119,7 @@ impl Dataset {
 	/// This table allows lookup of hashed keys to their string representation.
 	#[inline]
 	fn set_names(&mut self, names: &[&str]) {
-		crate::names::encode_datatable(&mut self.storage, &mut self.tables, names)
+		crate::names::encode_datatable(self, names)
 	}
 
 	/// Gets the special names table.

@@ -4,24 +4,27 @@ fn main() {
 	let matches = clap::command!("udf")
 		.subcommand(
 			clap::Command::new("validate")
-				.about("Checks the UDF file for errors")
+				.about("Checks the UDF file for errors.")
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
 				.arg(clap::arg!(-v --verbose "Verbose output"))
 		).subcommand(
 			clap::Command::new("print")
-				.about("Prints info about a dataset")
+				.about("Prints info about a dataset.")
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
+				.arg(clap::arg!(<path> "Path to the dataset"))
 				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the dataset"))
-				.arg(clap::arg!([path] "Path to the dataset"))
 				.arg(clap::arg!(-v --verbose "Verbose output"))
 				.arg(clap::arg!(-p --"print-array" "Print the array contents"))
 				.arg(clap::arg!(-f --format [format] "Format option, one of hex, flat, array (default array)"))
 				.arg(clap::arg!(--"line-width" [line_width] "Sets the line width for the purpose of inserting line breaks (default 75)"))
 		).subcommand(
-			clap::Command::new("hex-dump")
-				.about("Hex dump a dataset.")
+			clap::Command::new("export")
+				.about("Exports dataset or table.")
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
-				.arg(clap::arg!(--"file-offset" [file_offset] "Optional file offset to the dataset, if absent start fomr the root"))
+				.arg(clap::arg!(<path> "Path to the dataset"))
+				.arg(clap::arg!(<output> "Output file path").allow_invalid_utf8(true))
+				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the dataset"))
+				.arg(clap::arg!(-v --verbose "Verbose output"))
 		).get_matches();
 
 	if let Some(matches) = matches.subcommand_matches("validate") {
@@ -45,7 +48,7 @@ fn main() {
 	else if let Some(matches) = matches.subcommand_matches("print") {
 		let file = matches.value_of_os("file").unwrap();
 		let file_offset = value_of_t(matches, "file-offset");
-		let path = matches.value_of("path");
+		let path = matches.value_of("path").unwrap_or("");
 		let verbose = matches.is_present("verbose");
 		let print_array = matches.is_present("print-array");
 		let line_width = matches.value_of_t::<u32>("line-width").unwrap_or(75);
@@ -54,11 +57,15 @@ fn main() {
 		let opts = print::Options { file, file_offset, path, verbose, print_array, line_width, format };
 		print::run(&opts);
 	}
-	else if let Some(matches) = matches.subcommand_matches("hex-dump") {
+	else if let Some(matches) = matches.subcommand_matches("export") {
 		let file = matches.value_of_os("file").unwrap();
 		let file_offset = value_of_t::<udf::format::FileOffset>(matches, "file-offset");
-		let opts = hex_dump::Options { file, file_offset };
-		hex_dump::run(&opts);
+		let path = matches.value_of("path").unwrap_or("");
+		let output = matches.value_of_os("output").unwrap();
+		let verbose = matches.is_present("verbose");
+
+		let opts = export::Options { file, file_offset, path, output, verbose };
+		export::run(&opts);
 	}
 	else {
 		unreachable!()
@@ -78,7 +85,7 @@ use self::error::StringError;
 
 mod validate;
 mod print;
-mod hex_dump;
+mod export;
 
 /*
 Ideas:

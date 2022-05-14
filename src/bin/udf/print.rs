@@ -2,8 +2,11 @@ use std::{io, str};
 use std::ffi::OsStr;
 
 pub enum Format {
+	/// Print the array as a hex dump.
 	HexDump,
+	/// Print as a flattened array.
 	FlatArray,
+	/// Print as a proper multidimensional array.
 	NdArray,
 }
 impl Default for Format {
@@ -26,7 +29,7 @@ impl str::FromStr for Format {
 pub struct Options<'a> {
 	pub file: &'a OsStr,
 	pub file_offset: Option<udf::format::FileOffset>,
-	pub path: Option<&'a str>,
+	pub path: &'a str,
 	pub verbose: bool,
 	pub print_array: bool,
 	pub line_width: u32,
@@ -38,7 +41,7 @@ pub fn run(opts: &Options) {
 
 	let ref fo = opts.file_offset.unwrap_or_else(|| file.root());
 
-	walk(&mut file, opts, fo, opts.path.unwrap_or(""), None);
+	walk(&mut file, opts, fo, opts.path, None);
 }
 
 fn walk(file: &mut udf::FileIO, opts: &Options, fo: &udf::format::FileOffset, mut path: &str, parent: Option<&udf::WalkRef<udf::DatasetRef>>) {
@@ -156,7 +159,6 @@ fn walk(file: &mut udf::FileIO, opts: &Options, fo: &udf::format::FileOffset, mu
 
 pub fn print_dataset(fo: &udf::format::FileOffset, names: &udf::NamesRef, ds: &udf::DatasetRef) {
 	println!("# Dataset\n");
-	println!();
 	println!("File offset: {:#x}:{:#x}", fo.offset, fo.size);
 	println!("File size: {}", udf::FileSize(fo.size));
 	println!("Identifier: {:x?}", ds.header.id);

@@ -7,12 +7,10 @@ fn main() {
 	let mut ds = udf::Dataset::create(&["Points", "Contours", "Attributes", "Metadata", "Slices", "Heights", "Parts", "PartID"]);
 	ds.add_table(udf::TableRef {
 		key_name: udf::hash("Points"),
-		data: FLOATS.as_data_ref(),
+		data: FLOATS[..].as_data_ref(),
 		index_name: 0,
 		related_name: 0,
 	});
-
-	println!("{:#?}", ds.get_names());
 
 	let fo = writer.add_dataset(ds.as_ref()).unwrap();
 	writer.set_root(fo);

@@ -123,7 +123,7 @@ impl<'a> fmt::Display for NameOrHash<'a> {
 }
 
 
-pub(crate) fn encode_datatable(storage: &mut Vec<u64>, dataset: &mut Vec<format::Table>, names: &[&str]) {
+pub(crate) fn encode_datatable(ds: &mut Dataset, names: &[&str]) {
 	// Calculate storage in bytes
 	let mut data_size = mem::size_of::<format::NameDesc>() * names.len();
 	for &name in names {
@@ -131,10 +131,10 @@ pub(crate) fn encode_datatable(storage: &mut Vec<u64>, dataset: &mut Vec<format:
 	}
 
 	// Allocate storage
-	let old_len = storage.len();
+	let old_len = ds.storage.len();
 	let new_len = old_len + (data_size.wrapping_sub(1) / 8).wrapping_add(1);
-	storage.resize(new_len, 0);
-	let storage = storage[old_len..].as_bytes_mut();
+	ds.storage.resize(new_len, 0);
+	let storage = ds.storage[old_len..].as_bytes_mut();
 
 	let (desc, strings) = storage.split_at_mut(mem::size_of::<format::NameDesc>() * names.len());
 	let desc = unsafe { slice::from_raw_parts_mut(desc.as_mut_ptr() as *mut format::NameDesc, names.len()) };
@@ -154,7 +154,7 @@ pub(crate) fn encode_datatable(storage: &mut Vec<u64>, dataset: &mut Vec<format:
 	desc.sort_unstable_by_key(|desc| desc.hash);
 
 	// Add special name datatable
-	dataset.push(format::Table {
+	ds.tables.push(format::Table {
 		key_name: 0,
 		type_info: format::TYPE_NAMES,
 		compress_info: 0,
@@ -166,4 +166,5 @@ pub(crate) fn encode_datatable(storage: &mut Vec<u64>, dataset: &mut Vec<format:
 		index_name: 0,
 		related_name: 0,
 	});
+	ds.header.len += 1;
 }

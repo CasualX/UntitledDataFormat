@@ -158,14 +158,14 @@ pub const TYPE_HINT_NONE: u16 = 0 << 8;
 
 /// Data is plain text.
 ///
-/// * Dimensions must be `TYPE_DIM_1D` with the shape.X equal to the number of characters.
+/// * Dimensions must be `TYPE_DIM_1D` with the shape.X equal to the number of (byte) chars.
 ///   No ghost dimensions are allowed and must be zero.
 ///
 /// * Primitive can be `TYPE_PRIM_U8`, `TYPE_PRIM_I8` and must be valid UTF-8 encoded text.
 ///
 /// * Primitive can be `TYPE_PRIM_U16` and must be valid UTF-16 (little endian) encoded text.
 ///
-/// Note that nul characters are allowed as per unicode standard.
+/// Note that nul chars are allowed as per unicode standard.
 pub const TYPE_HINT_TEXT: u16 = 1 << 8;
 
 /// Data is JSON text.
