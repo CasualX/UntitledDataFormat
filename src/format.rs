@@ -7,7 +7,7 @@ use std::mem;
 /// The UDF file header.
 #[derive(Copy, Clone, Default, dataview::Pod)]
 #[repr(C)]
-pub struct Header {
+pub struct UdfHeader {
 	/// Magic file format identifier.
 	///
 	/// Must be set to [`MAGIC`](Self::MAGIC).
@@ -20,12 +20,13 @@ pub struct Header {
 	pub next: u64,
 	/// The root dataset.
 	pub root: FileOffset,
-	pub temp: [u64; 4],
+	/// Reserved, must be zero.
+	pub reserved: [u64; 4],
 }
 
-const _: [(); 0] = [(); mem::size_of::<Header>() % 16];
+const _: [(); 0x40] = [(); mem::size_of::<UdfHeader>()];
 
-impl Header {
+impl UdfHeader {
 	pub const MAGIC: [u8; 4] = *b"UDF0";
 }
 
@@ -38,7 +39,7 @@ pub struct FileOffset {
 	pub offset: u64,
 	/// Size of the dataset, must contain all the data of the dataset.
 	///
-	/// Must be 8-byte aligned.
+	/// Must be 16-byte aligned.
 	pub size: u64,
 }
 
@@ -51,7 +52,7 @@ impl FileOffset {
 	}
 	#[inline]
 	pub const fn is_aligned(&self) -> bool {
-		self.offset & 0xf == 0 && self.size & 0x7 == 0
+		self.offset & 0xf == 0 && self.size & 0xf == 0
 	}
 }
 
@@ -62,14 +63,14 @@ pub struct DatasetHeader {
 	///
 	/// Must be set to [`CHECK`](Self::CHECK).
 	pub check: u32,
-	/// CRC32 of the header (starting from the next field) and the tables.
+	/// Checksum of the header (starting from the next field) and the tables.
 	///
 	/// If zero, the checksum is absent.
-	pub csum: u32,
-	/// CRC32 of the data storage.
+	pub csum_header: u32,
+	/// Checksum of the data storage.
 	///
 	/// If zero, the checksum is absent.
-	pub storage_csum: u32,
+	pub csum_storage: u32,
 	/// Number of tables following the header.
 	pub len: u8,
 	/// Padding, must be zero.
@@ -82,11 +83,11 @@ pub struct DatasetHeader {
 	pub pad_max_len: u8,
 	/// Identifies the dataset convention.
 	pub id: [u8; 4],
-	/// Unused padding, must be zero.
-	pub flags: u32,
+	/// Reserved, must be zero.
+	pub reserved: [u32; 3],
 }
 
-const _: [(); 0] = [(); mem::size_of::<DatasetHeader>() % 8];
+const _: [(); 0x20] = [(); mem::size_of::<DatasetHeader>()];
 
 impl DatasetHeader {
 	pub const CHECK: u32 = 0x7fcea59b;
@@ -94,7 +95,7 @@ impl DatasetHeader {
 
 #[derive(Copy, Clone, Debug, Default, dataview::Pod)]
 #[repr(C)]
-pub struct Table {
+pub struct TableDesc {
 	/// Key name of the table.
 	pub key_name: u32,
 	/// Combined type primitive, hint and flags.
@@ -109,18 +110,18 @@ pub struct Table {
 	pub data_size: u32,
 	/// Multidimensional shape of the data.
 	pub data_shape: [u32; 2],
-	/// Must be zero.
-	pub pad: u32,
 	/// When an index type hint is used this specifies which datatable the indices go into. Otherwise 0.
 	///
 	/// If the datatable by this name does not exist in the dataset, walk through parent datasets until found.
 	pub index_name: u32,
 	/// Struct of Arrays (SoA) indicates related datatable.
 	pub related_name: u32,
+	/// Reserved, must be zero.
+	pub reserved: [u32; 3],
 }
 
 // Datatable must be a multiple of 8 bytes to keep alignment easy to reason about
-const _: [(); 0] = [(); mem::size_of::<Table>() % 8];
+const _: [(); 0x30] = [(); mem::size_of::<TableDesc>()];
 
 /// Special type for the names table.
 pub const TYPE_NAMES: u16 = 0;
@@ -238,53 +239,6 @@ pub const fn type_prim_align(type_info: u16) -> usize {
 		TYPE_PRIM_U32 | TYPE_PRIM_I32 | TYPE_PRIM_F32 | TYPE_PRIM_DECIMAL => 4,
 		TYPE_PRIM_U64 | TYPE_PRIM_I64 | TYPE_PRIM_F64 => 8,
 		_ => 1,
-	}
-}
-
-pub const fn s_type_prim(type_info: u16) -> Option<&'static str> {
-	match type_info & TYPE_PRIM_MASK {
-		TYPE_PRIM_CUSTOM => Some("custom"),
-		TYPE_PRIM_BIT => Some("bit"),
-		TYPE_PRIM_U8 => Some("u8"),
-		TYPE_PRIM_I8 => Some("i8"),
-		TYPE_PRIM_U16 => Some("u16"),
-		TYPE_PRIM_I16 => Some("i16"),
-		TYPE_PRIM_U32 => Some("u32"),
-		TYPE_PRIM_I32 => Some("i32"),
-		TYPE_PRIM_U64 => Some("u64"),
-		TYPE_PRIM_I64 => Some("i64"),
-		TYPE_PRIM_BFLOAT16 => Some("bfloat16"),
-		TYPE_PRIM_F32 => Some("f32"),
-		TYPE_PRIM_F64 => Some("f64"),
-		TYPE_PRIM_DECIMAL => Some("decimal"),
-		_ => None,
-	}
-}
-pub const fn s_type_dim(type_info: u16) -> Option<&'static str> {
-	match type_info & TYPE_DIM_MASK {
-		TYPE_DIM_SCALAR => Some("scalar"),
-		TYPE_DIM_1D => Some("1d"),
-		TYPE_DIM_2D => Some("2d"),
-		TYPE_DIM_3D => Some("3d"),
-		_ => None,
-	}
-}
-pub const fn s_type_hint(type_info: u16) -> Option<&'static str> {
-	match type_info & TYPE_HINT_MASK {
-		TYPE_HINT_NONE => Some("none"),
-		TYPE_HINT_TEXT => Some("text"),
-		TYPE_HINT_JSON => Some("json"),
-		TYPE_HINT_DATASET => Some("dataset"),
-		TYPE_HINT_INDEX => Some("index"),
-		TYPE_HINT_RANGE => Some("range"),
-		TYPE_HINT_COORD => Some("point"),
-		TYPE_HINT_HATCH => Some("line"),
-		TYPE_HINT_TRANSFORM => Some("transform"),
-		TYPE_HINT_COLOR => Some("color"),
-		TYPE_HINT_TIME => Some("time"),
-		TYPE_HINT_UTS => Some("uts"),
-		TYPE_HINT_GUID => Some("guid"),
-		_ => None,
 	}
 }
 

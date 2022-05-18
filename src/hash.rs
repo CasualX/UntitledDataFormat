@@ -20,7 +20,7 @@ pub const fn hash(s: &str) -> u32 {
 ///
 /// ```
 /// const STRING: &str = "Hello World";
-/// assert_eq!(obfstr::hash!(STRING), 0x6E4A573D);
+/// assert_eq!(udf::hash!(STRING), 0x6E4A573D);
 /// ```
 #[macro_export]
 macro_rules! hash {

@@ -154,7 +154,7 @@ pub(crate) fn encode_datatable(ds: &mut Dataset, names: &[&str]) {
 	desc.sort_unstable_by_key(|desc| desc.hash);
 
 	// Add special name datatable
-	ds.tables.push(format::Table {
+	ds.tables.push(format::TableDesc {
 		key_name: 0,
 		type_info: format::TYPE_NAMES,
 		compress_info: 0,
@@ -162,9 +162,9 @@ pub(crate) fn encode_datatable(ds: &mut Dataset, names: &[&str]) {
 		mem_end: new_len as u32,
 		data_size: data_size as u32,
 		data_shape: [names.len() as u32, 0],
-		pad: 0,
 		index_name: 0,
 		related_name: 0,
+		reserved: [0; 3],
 	});
 	ds.header.len += 1;
 }

@@ -28,7 +28,7 @@ pub fn run(opts: &Options) {
 
 		match udf::PathEl::parse(&mut path) {
 			Ok(udf::PathEl::Dir { name, index }) => {
-				let table = match names.find(name).and_then(|hash| dataset.get_table(hash)) {
+				let table = match names.find(name).and_then(|hash| dataset.find_table(hash)) {
 					Some(a) => a,
 					None => break eprintln!("Dataset does not have a table named {name:?}!"),
 				};
@@ -54,7 +54,7 @@ pub fn run(opts: &Options) {
 					break eprintln!("The path is malformed");
 				}
 
-				let table = match names.find(name).and_then(|hash| dataset.get_table(hash)) {
+				let table = match names.find(name).and_then(|hash| dataset.find_table(hash)) {
 					Some(a) => a,
 					None => break eprintln!("Dataset does not have a table named {name:?}!"),
 				};

@@ -5,23 +5,32 @@ use crate::*;
 #[derive(Copy, Clone, Debug)]
 pub struct DatasetRef<'a> {
 	pub header: &'a format::DatasetHeader,
+	pub tables: &'a [format::TableDesc],
 	pub storage: &'a [u64],
-	pub tables: &'a [format::Table],
 }
 
 impl<'a> DatasetRef<'a> {
 	/// Parses the dataset from the storage itself.
-	#[inline]
 	pub fn parse(storage: &'a [u64]) -> Result<DatasetRef<'a>, ParseError> {
-		let mut tables: &[_] = &[];
 		let data_view = storage.as_data_view();
-		if let Some(header) = data_view.try_read::<format::DatasetHeader>(0) {
-			if let Some(ds_tables) = data_view.try_slice(mem::size_of_val(header), header.len as usize) {
-				tables = ds_tables;
-			}
-			return Ok(DatasetRef { header, storage, tables });
-		}
-		panic!();
+		let header = match data_view.try_read::<format::DatasetHeader>(0) {
+			Some(header) => header,
+			None => return Err(ParseError::OutOfBounds),
+		};
+
+		let tables_len = usize::max(header.len as usize, header.max_len as usize);
+		let tables = match data_view.try_slice::<format::TableDesc>(mem::size_of_val(header), tables_len) {
+			Some(tables) => tables,
+			None => return Err(ParseError::OutOfBounds),
+		};
+
+		let start = mem::size_of_val(header) / 8 + mem::size_of_val(tables) / 8;
+		let storage = match storage.get(start..) {
+			Some(storage) => storage,
+			None => return Err(ParseError::OutOfBounds),
+		};
+
+		return Ok(DatasetRef { header, tables, storage });
 	}
 
 	/// The number of tables in this dataset.
@@ -30,7 +39,7 @@ impl<'a> DatasetRef<'a> {
 		self.tables.len()
 	}
 
-	/// Returns the size in bytes that this dataset will take.
+	/// Returns the file size in bytes that this dataset requires.
 	#[inline]
 	pub fn file_size(&self) -> usize {
 		mem::size_of_val(self.header) + mem::size_of_val(self.storage) + mem::size_of_val(self.tables)
@@ -64,21 +73,28 @@ impl<'a> DatasetRef<'a> {
 		}
 	}
 
+	pub fn get_name(&self, name: u32) -> NameOrHash<'a> {
+		unimplemented!()
+	}
+
+	/// Finds a table descriptor by its key name.
 	#[inline]
-	pub fn get_data_ref(&self, table: &format::Table) -> Option<DataRef<'a>> {
+	pub fn find_table(&self, key_name: u32) -> Option<&format::TableDesc> {
+		self.tables.iter().find(move |&table| table.key_name == key_name)
+		// match self.tables.binary_search_by_key(&key_name, |table| table.key_name) {
+		// 	Ok(index) => Some(&self.tables[index]),
+		// 	Err(_) => None,
+		// }
+	}
+
+	#[inline]
+	pub fn get_data_ref(&self, table: &format::TableDesc) -> Option<DataRef<'a>> {
 		let storage = self.storage.get(table.mem_start as usize..table.mem_end as usize)?;
 		let bytes = storage.as_bytes().get(..table.data_size as usize)?;
 		let type_info = table.type_info;
 		let compress_info = table.compress_info;
 		let shape = table.data_shape;
 		Some(DataRef { bytes, type_info, compress_info, shape })
-	}
-
-	pub fn get_table(&self, name: u32) -> Option<&format::Table> {
-		match self.tables.binary_search_by_key(&name, |table| table.key_name) {
-			Ok(index) => Some(&self.tables[index]),
-			Err(_) => None,
-		}
 	}
 }
 
@@ -87,7 +103,7 @@ impl<'a> DatasetRef<'a> {
 #[derive(Clone)]
 pub struct Dataset {
 	pub header: format::DatasetHeader,
-	pub tables: Vec<format::Table>,
+	pub tables: Vec<format::TableDesc>,
 	pub storage: Vec<u64>,
 }
 
@@ -105,7 +121,11 @@ impl Dataset {
 
 	#[inline]
 	pub fn as_ref(&self) -> DatasetRef<'_> {
-		DatasetRef { header: &self.header, storage: &self.storage, tables: &self.tables }
+		DatasetRef {
+			header: &self.header,
+			storage: &self.storage,
+			tables: &self.tables,
+		}
 	}
 
 	/// The number of tables in this dataset.
@@ -158,15 +178,15 @@ impl Dataset {
 		let data_size = table_ref.data.bytes.len() as u32;
 		let data_shape = table_ref.data.shape;
 
-		self.tables.insert(place, format::Table {
+		self.tables.insert(place, format::TableDesc {
 			key_name,
 			type_info,
 			compress_info: 0,
 			mem_start, mem_end,
 			data_size, data_shape,
-			pad: 0,
 			index_name,
 			related_name: rel_name,
+			reserved: [0; 3],
 		});
 		self.header.len += 1;
 		return true;

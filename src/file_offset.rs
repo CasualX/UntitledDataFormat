@@ -1,10 +1,12 @@
 use std::{error, fmt, num, str};
 use crate::*;
 
-/// Error parsing file offsets.
+/// Parse errors.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum ParseError {
 	InvalidFormat,
+	OutOfBounds,
 	ParseIntError(num::ParseIntError),
 }
 
@@ -19,6 +21,7 @@ impl fmt::Display for ParseError {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			ParseError::InvalidFormat => f.pad("invalid format"),
+			ParseError::OutOfBounds => f.pad("out of bounds"),
 			ParseError::ParseIntError(err) => err.fmt(f),
 		}
 	}

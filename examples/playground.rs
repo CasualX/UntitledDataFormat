@@ -12,7 +12,7 @@ fn main() {
 		related_name: 0,
 	});
 
-	let fo = writer.add_dataset(ds.as_ref()).unwrap();
+	let fo = writer.add_dataset(&ds.as_ref()).unwrap();
 	writer.set_root(fo);
 	writer.write_header().unwrap();
 }

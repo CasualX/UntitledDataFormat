@@ -69,8 +69,9 @@ fn main() {
 			index_name: udf::hash!("PartsInfo"),
 			..Default::default()
 		});
+		ds.header.id = *b"VL2\0";
 
-		let fo = udf.add_dataset(ds.as_ref()).unwrap();
+		let fo = udf.add_dataset(&ds.as_ref()).unwrap();
 		slices_fo.push(fo);
 	}
 
@@ -99,8 +100,9 @@ fn main() {
 			data: slices_fo.as_data_ref(),
 			..Default::default()
 		});
+		ds.header.id = *b"STCK";
 
-		let root_fo = udf.add_dataset(ds.as_ref()).unwrap();
+		let root_fo = udf.add_dataset(&ds.as_ref()).unwrap();
 		udf.set_root(root_fo);
 		udf.write_header().unwrap();
 	}

@@ -10,7 +10,7 @@ use crate::*;
 /// Manipulate UDF files through File IO.
 pub struct FileIO {
 	file: fs::File,
-	header: format::Header,
+	header: format::UdfHeader,
 }
 
 impl FileIO {
@@ -23,12 +23,12 @@ impl FileIO {
 	}
 	fn create_(path: &Path, id: [u8; 4]) -> io::Result<FileIO> {
 		let mut file = fs::File::create(path)?;
-		let header = format::Header {
-			magic: format::Header::MAGIC,
+		let header = format::UdfHeader {
+			magic: format::UdfHeader::MAGIC,
 			id,
-			next: mem::size_of::<format::Header>() as u64,
+			next: mem::size_of::<format::UdfHeader>() as u64,
 			root: format::FileOffset::default(),
-			temp: [0; 4],
+			reserved: [0; 4],
 		};
 		file.write_all(header.as_bytes())?;
 		Ok(FileIO { file, header })
@@ -43,9 +43,9 @@ impl FileIO {
 	}
 	fn open_(path: &Path) -> io::Result<FileIO> {
 		let mut file = fs::File::open(path)?;
-		let mut header = format::Header::default();
+		let mut header = format::UdfHeader::default();
 		file.read_exact(header.as_bytes_mut())?;
-		if header.magic != format::Header::MAGIC {
+		if header.magic != format::UdfHeader::MAGIC {
 			return Err(io::Error::from(io::ErrorKind::InvalidData));
 		}
 		Ok(FileIO { file, header })
@@ -60,9 +60,9 @@ impl FileIO {
 	}
 	fn edit_(path: &Path) -> io::Result<FileIO> {
 		let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
-		let mut header = format::Header::default();
+		let mut header = format::UdfHeader::default();
 		file.read_exact(header.as_bytes_mut())?;
-		if header.magic != format::Header::MAGIC {
+		if header.magic != format::UdfHeader::MAGIC {
 			return Err(io::Error::from(io::ErrorKind::InvalidData));
 		}
 		Ok(FileIO { file, header })
@@ -74,6 +74,8 @@ impl FileIO {
 	}
 
 	/// Sets the file id.
+	///
+	/// Invoke [`write_header`](Self::write_header) to persist the change.
 	pub fn set_id(&mut self, id: [u8; 4]) {
 		self.header.id = id;
 	}
@@ -84,14 +86,14 @@ impl FileIO {
 	}
 
 	/// Sets the root dataset.
+	///
+	/// Invoke [`write_header`](Self::write_header) to persist the change.
 	pub fn set_root(&mut self, root: format::FileOffset) {
 		self.header.root = root;
 	}
 
 	/// Writes the updated header to the file.
 	pub fn write_header(&mut self) -> io::Result<()> {
-		// Before writing the header, sync other changes
-		self.file.flush()?;
 		self.file.seek(io::SeekFrom::Start(0))?;
 		self.file.write_all(self.header.as_bytes())?;
 		Ok(())
@@ -108,7 +110,7 @@ impl FileIO {
 	/// Adds a dataset to the UDF file.
 	///
 	/// A new section is allocated for the dataset.
-	pub fn add_dataset(&mut self, ds: DatasetRef<'_>) -> io::Result<format::FileOffset> {
+	pub fn add_dataset(&mut self, ds: &DatasetRef<'_>) -> io::Result<format::FileOffset> {
 		let fo = self.allocate(ds.file_size());
 		self.write_dataset(fo, ds)?;
 		Ok(fo)
@@ -119,7 +121,7 @@ impl FileIO {
 	/// This API lets you specify an arbitrary file offset.
 	/// Needless to say it is trivial to corrupt the UDF file with this.
 	/// Only use this with values retrieved from [`allocate`](Self::allocate).
-	pub fn write_dataset(&mut self, fo: format::FileOffset, ds: DatasetRef<'_>) -> io::Result<()> {
+	pub fn write_dataset(&mut self, fo: format::FileOffset, ds: &DatasetRef<'_>) -> io::Result<()> {
 		// File offsets must be 16-byte aligned
 		if fo.is_null() || !fo.is_aligned() {
 			return Err(io::Error::from(io::ErrorKind::InvalidInput));
@@ -162,12 +164,12 @@ impl FileIO {
 		self.file.seek(io::SeekFrom::Start(fo.offset))?;
 		self.file.read_exact(header.as_bytes_mut())?;
 
-		let header_size = mem::size_of::<format::DatasetHeader>() + mem::size_of::<format::Table>() * header.len as usize;
+		let header_size = mem::size_of::<format::DatasetHeader>() + mem::size_of::<format::TableDesc>() * header.len as usize;
 		if header.check != format::DatasetHeader::CHECK || fo.size < header_size as u64 {
 			return Err(io::Error::from(io::ErrorKind::InvalidData));
 		}
 
-		let mut tables = vec![format::Table::default(); header.len as usize];
+		let mut tables = vec![format::TableDesc::default(); header.len as usize];
 		let mut storage = vec![0u64; (fo.size as usize - header_size) / 8];
 		self.file.read_exact(tables.as_bytes_mut())?;
 		self.file.read_exact(storage.as_bytes_mut())?;
@@ -175,6 +177,7 @@ impl FileIO {
 		Ok(Dataset { header, tables, storage })
 	}
 
+	/// Flushes the underlying file object.
 	pub fn flush(&mut self) -> io::Result<()> {
 		self.file.flush()
 	}

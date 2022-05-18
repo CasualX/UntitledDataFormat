@@ -69,7 +69,7 @@ fn walk(file: &mut udf::FileIO, opts: &Options, fo: &udf::format::FileOffset, mu
 
 	match udf::PathEl::parse(&mut path) {
 		Ok(udf::PathEl::Dir { name, index }) => {
-			let table = match names.find(name).and_then(|hash| dataset.get_table(hash)) {
+			let table = match names.find(name).and_then(|hash| dataset.find_table(hash)) {
 				Some(a) => a,
 				None => return eprintln!("Dataset does not have a table named {name:?}!"),
 			};
@@ -102,7 +102,7 @@ fn walk(file: &mut udf::FileIO, opts: &Options, fo: &udf::format::FileOffset, mu
 				return eprintln!("The path is malformed");
 			}
 
-			let table = match names.find(name).and_then(|hash| dataset.get_table(hash)) {
+			let table = match names.find(name).and_then(|hash| dataset.find_table(hash)) {
 				Some(a) => a,
 				None => return eprintln!("Dataset does not have a table named {name:?}!"),
 			};
@@ -161,12 +161,12 @@ pub fn print_dataset(fo: &udf::format::FileOffset, names: &udf::NamesRef, ds: &u
 	println!("# Dataset\n");
 	println!("File offset: {:#x}:{:#x}", fo.offset, fo.size);
 	println!("File size: {}", udf::FileSize(fo.size));
-	println!("Identifier: {:x?}", ds.header.id);
-	if ds.header.csum != 0 {
-		println!("Header checksum:  {:#x}", ds.header.csum);
+	println!("Identifier: {}", udf::PrintId(ds.header.id));
+	if ds.header.csum_header != 0 {
+		println!("Header checksum:  {:#x}", ds.header.csum_header);
 	}
-	if ds.header.storage_csum != 0 {
-		println!("Storage checksum: {:#x}", ds.header.storage_csum);
+	if ds.header.csum_storage != 0 {
+		println!("Storage checksum: {:#x}", ds.header.csum_storage);
 	}
 	println!();
 	for table in ds.tables {
@@ -174,7 +174,7 @@ pub fn print_dataset(fo: &udf::format::FileOffset, names: &udf::NamesRef, ds: &u
 	}
 }
 
-pub fn print_table_header(names: &udf::NamesRef, table: &udf::format::Table) {
+pub fn print_table_header(names: &udf::NamesRef, table: &udf::format::TableDesc) {
 	if table.key_name == 0 {
 		println!("## Names\n\n{:#?}\n", names);
 		return;
@@ -183,7 +183,7 @@ pub fn print_table_header(names: &udf::NamesRef, table: &udf::format::Table) {
 	let key_name = udf::NameOrHash(names.lookup(table.key_name));
 	println!("## {}", key_name);
 	println!();
-	println!("Type info: {:#x}  ", table.type_info);
+	println!("Type info: {}  ", udf::PrintTypeInfo(table.type_info));
 	if table.compress_info != 0 {
 		println!("Compress info: {}  ", table.compress_info);
 	}

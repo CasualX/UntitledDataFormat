@@ -185,12 +185,12 @@ impl Validator {
 		}
 	}
 
-	fn validate_data<'a>(&mut self, dataset: &udf::DatasetRef<'a>, key_name: &udf::NameOrHash, table: &udf::format::Table) -> Option<udf::DataRef<'a>> {
+	fn validate_data<'a>(&mut self, dataset: &udf::DatasetRef<'a>, key_name: &udf::NameOrHash, table: &udf::format::TableDesc) -> Option<udf::DataRef<'a>> {
 		dataset.get_data_ref(table)
 	}
 
 	// Check that the shape matches the data size
-	fn validate_shape(&mut self, key_name: &udf::NameOrHash, table: &udf::format::Table) {
+	fn validate_shape(&mut self, key_name: &udf::NameOrHash, table: &udf::format::TableDesc) {
 		let prim_type = table.type_info & udf::format::TYPE_PRIM_MASK;
 		let shape = udf::Shape::from_shape(table.type_info, table.data_shape);
 		let data_size = table.data_size as usize;
@@ -229,17 +229,17 @@ impl Validator {
 
 		if !success {
 			self.errors += 1;
-			let prim_name = udf::format::s_type_prim(prim_type).unwrap_or("?");
+			let prim_name = udf::PrintTypeInfo::prim(prim_type).unwrap_or("?");
 			eprintln!("err: table {} has shape {} with {} elements of {} but data size {:#x} does not match!",
 				key_name, shape, shape_len, prim_name, data_size);
 		}
 	}
 
-	fn validate_hint_none(&mut self, dataset: &udf::DatasetRef, key_name: &udf::NameOrHash, table: &udf::format::Table) {
+	fn validate_hint_none(&mut self, dataset: &udf::DatasetRef, key_name: &udf::NameOrHash, table: &udf::format::TableDesc) {
 
 	}
 
-	fn validate_hint_text(&mut self, dataset: &udf::DatasetRef, key_name: &udf::NameOrHash, table: &udf::format::Table) {
+	fn validate_hint_text(&mut self, dataset: &udf::DatasetRef, key_name: &udf::NameOrHash, table: &udf::format::TableDesc) {
 		let prim_type = table.type_info & udf::format::TYPE_PRIM_MASK;
 		let data_ref = match dataset.get_data_ref(table) {
 			Some(data) => data,
@@ -265,12 +265,12 @@ impl Validator {
 			},
 			_ => {
 				self.errors += 1;
-				eprintln!("err: table {} is TYPE_HINT_TEXT but incompatible prim_type: {}", key_name, udf::format::s_type_prim(table.type_info).unwrap_or("?"));
+				eprintln!("err: table {} is TYPE_HINT_TEXT but incompatible prim_type: {}", key_name, udf::PrintTypeInfo::prim(table.type_info).unwrap_or("?"));
 			},
 		}
 	}
 
-	fn validate_related(&mut self, dataset: &udf::DatasetRef<'_>, names: &udf::NamesRef<'_>, table: &udf::format::Table) {
+	fn validate_related(&mut self, dataset: &udf::DatasetRef<'_>, names: &udf::NamesRef<'_>, table: &udf::format::TableDesc) {
 		let key_name = udf::NameOrHash(names.lookup(table.key_name));
 
 		// Name must exist
@@ -288,7 +288,7 @@ impl Validator {
 		}
 
 		// Find the related table
-		let related_table = match dataset.get_table(table.related_name) {
+		let related_table = match dataset.find_table(table.related_name) {
 			Some(related_table) => related_table,
 			None => {
 				self.errors += 1;
