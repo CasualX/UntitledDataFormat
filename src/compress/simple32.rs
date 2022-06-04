@@ -7,29 +7,14 @@ const OP_INDEX: u8  = 0b10_000000; // (2) 6-bit index (1 byte)
 const OP_REPEAT: u8 = 0b110_00000; // (3) repeat last value (up to 32 times) (1 byte)
 const OP_VALUES: u8 = 0b111_00000; // (4) copy uncompressed values (up to 32 vals) (1 + n byte)
 
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
-pub struct Stats {
-	pub xdelta: u32,
-	pub ydelta: u32,
-	pub index: u32,
-	pub repeat: u32,
-	pub values: u32,
-	pub ratio: f32,
-}
-
-// pub fn compress_simple_u16(storage: &mut Vec<u64>, data: &[u16]) {}
-// pub fn compress_simple_u64(storage: &mut Vec<u64>, data: &[u64]) {}
-// pub fn compress_simple_f32(storage: &mut Vec<u64>, data: &[f32], unit: f32) {}
-// pub fn compress_simple_f64(storage: &mut Vec<u64>, data: &[f64], unit: f64) {}
-
-pub fn compress_simple_u32(storage: &mut Vec<u64>, data: &[u32], stats: &mut Stats) -> usize {
-	let byte_offset = std::mem::size_of_val(storage.as_slice());
+pub fn compress(storage: &mut Vec<u64>, data: &[u32], stats: &mut Stats) -> usize {
+	let byte_offset = mem::size_of_val(storage.as_slice());
 	let mut buf = EncodeBuffer { storage, byte_offset };
 
 	// Compression state
 	let mut lastv = 0u32; // Last value for RLE and delta
-	let mut run = 0; // RLE counter
-	let mut unc = 0; // uncompressed values counter
+	let mut run = 0usize; // RLE counter
+	let mut unc = 0usize; // uncompressed values counter
 	let mut lookup = [0u32; 64]; // lookup table for index
 
 	for i in 0..data.len() {
@@ -41,7 +26,7 @@ pub fn compress_simple_u32(storage: &mut Vec<u64>, data: &[u32], stats: &mut Sta
 			// Check if max run of repeat
 			if run == 32 {
 				stats.repeat += 1;
-				buf.push(OP_REPEAT | (run - 1));
+				buf.push(OP_REPEAT | (run - 1) as u8);
 				run = 0;
 				unc = 0;
 			}
@@ -50,7 +35,7 @@ pub fn compress_simple_u32(storage: &mut Vec<u64>, data: &[u32], stats: &mut Sta
 			// If no more repeated values
 			if run > 0 {
 				stats.repeat += 1;
-				buf.push(OP_REPEAT | (run - 1));
+				buf.push(OP_REPEAT | (run - 1) as u8);
 				run = 0;
 				unc = 0;
 
@@ -119,7 +104,7 @@ pub fn compress_simple_u32(storage: &mut Vec<u64>, data: &[u32], stats: &mut Sta
 	// Make sure the last run is added to the storage
 	if run > 0 {
 		stats.repeat += 1;
-		buf.push(OP_REPEAT | (run - 1));
+		buf.push(OP_REPEAT | (run - 1) as u8);
 	}
 
 	stats.ratio = (buf.byte_offset - byte_offset) as f32 / mem::size_of_val(data) as f32;
@@ -127,7 +112,7 @@ pub fn compress_simple_u32(storage: &mut Vec<u64>, data: &[u32], stats: &mut Sta
 	return buf.byte_offset;
 }
 
-pub fn decompress_simple_u32(storage: &mut [u32], stream: &[u8]) -> bool {
+pub fn decompress(storage: &mut [u32], stream: &[u8]) -> bool {
 	let mut lastv = 0u32;
 	let mut lookup = [0u32; 64];
 
@@ -257,11 +242,11 @@ fn regressions() {
 	for data in cases {
 		let mut stream = Vec::new();
 		let mut stats = Stats::default();
-		let len = compress_simple_u32(&mut stream, data, &mut stats);
+		let len = compress(&mut stream, data, &mut stats);
 		let stream = &stream.as_bytes()[..len];
 		println!("{:?}\n{:x?}", stats, stream);
 		let mut storage = vec![0u32; data.len()];
-		decompress_simple_u32(&mut storage, stream);
+		decompress(&mut storage, stream);
 		assert_eq!(&storage, data);
 	}
 }

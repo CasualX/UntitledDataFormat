@@ -1,9 +1,21 @@
 
-mod simple;
+mod simple32;
+mod simple16;
 
 use dataview::Pod;
 
-pub use self::simple::*;
+pub use self::simple32::{compress as compress_simple32, decompress as decompress_simple32};
+pub use self::simple16::{compress as compress_simple16, decompress as decompress_simple16};
+
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+pub struct Stats {
+	pub xdelta: u32,
+	pub ydelta: u32,
+	pub index: u32,
+	pub repeat: u32,
+	pub values: u32,
+	pub ratio: f32,
+}
 
 pub struct EncodeBuffer<'a> {
 	pub storage: &'a mut Vec<u64>,
@@ -54,7 +66,7 @@ fn castu32(slice: &[i32]) -> &[u32] {
 	unsafe { std::mem::transmute(slice) }
 }
 
-fn sign_extend32(int: u32, bits: usize) -> i32 {
+const fn sign_extend32(int: u32, bits: usize) -> i32 {
 	let mask = (1u32 << bits) - 1;
 	(if int & (1 << (bits - 1)) == 0 { int & mask }
 	else { int | !mask }) as i32
