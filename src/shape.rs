@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str};
 use crate::*;
 
 /// Shape.
@@ -93,6 +93,38 @@ impl fmt::Display for Shape {
 			Shape::D1(x) => write!(f, "{}", x),
 			Shape::D2(x, y) => write!(f, "{}x{}", x, y),
 			Shape::D3(x, y, z) => write!(f, "{}x{}x{}", x, y, z),
+		}
+	}
+}
+
+impl str::FromStr for Shape {
+	type Err = ParseError;
+	fn from_str(string: &str) -> Result<Self, ParseError> {
+		if string == "scalar" {
+			return Ok(Shape::Scalar);
+		}
+		let mut split = string.split("x");
+		let x = match split.next() {
+			Some(x) => x.parse::<u32>()?,
+			None => return Err(ParseError::InvalidFormat),
+		};
+		let y = match split.next() {
+			Some(y) => y.parse::<u32>()?,
+			None => return Ok(Shape::D1(x)),
+		};
+		if y >= (1 << 24) {
+			return Err(ParseError::Overflow);
+		}
+		let z = match split.next() {
+			Some(z) => z.parse::<u32>()?,
+			None => return Ok(Shape::D2(x, y)),
+		};
+		if z >= (1 << 8) {
+			return Err(ParseError::Overflow);
+		}
+		match split.next() {
+			Some(_) => Err(ParseError::InvalidFormat),
+			None => Ok(Shape::D3(x, y, z as u8)),
 		}
 	}
 }

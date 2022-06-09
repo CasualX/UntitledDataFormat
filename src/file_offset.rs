@@ -7,6 +7,7 @@ use crate::*;
 pub enum ParseError {
 	InvalidFormat,
 	OutOfBounds,
+	Overflow,
 	ParseIntError(num::ParseIntError),
 }
 
@@ -22,6 +23,7 @@ impl fmt::Display for ParseError {
 		match self {
 			ParseError::InvalidFormat => f.pad("invalid format"),
 			ParseError::OutOfBounds => f.pad("out of bounds"),
+			ParseError::Overflow => f.pad("overflow"),
 			ParseError::ParseIntError(err) => err.fmt(f),
 		}
 	}
@@ -38,17 +40,17 @@ impl error::Error for ParseError {
 
 impl str::FromStr for format::FileOffset {
 	type Err = ParseError;
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let mut iter = s.split(":");
-		let offset = match iter.next() {
+	fn from_str(string: &str) -> Result<Self, Self::Err> {
+		let mut split = string.split(":");
+		let offset = match split.next() {
 			Some(src) => parse_u64(src)?,
 			None => return Err(ParseError::InvalidFormat),
 		};
-		let size = match iter.next() {
+		let size = match split.next() {
 			Some(src) => parse_u64(src)?,
 			None => return Err(ParseError::InvalidFormat),
 		};
-		if iter.next().is_some() {
+		if split.next().is_some() {
 			return Err(ParseError::InvalidFormat);
 		}
 

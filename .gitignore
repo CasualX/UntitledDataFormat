@@ -6,3 +6,4 @@ target/
 *.udf
 *.txt
 *.npy
+*.ini

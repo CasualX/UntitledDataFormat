@@ -1,3 +1,5 @@
+use std::fmt;
+use std::path::Path;
 
 fn main() {
 
@@ -13,37 +15,35 @@ fn main() {
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
 				.arg(clap::arg!(<path> "Path to the dataset"))
 				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the dataset"))
-				.arg(clap::arg!(-v --verbose "Verbose output"))
 				.arg(clap::arg!(-p --"print-array" "Print the array contents"))
-				.arg(clap::arg!(-f --format [format] "Format option, one of hex, flat, array (default array)"))
+				.arg(clap::arg!(-f --format [format] "Format option: one of hex, flat, array (default array)"))
 				.arg(clap::arg!(--"line-width" [line_width] "Sets the line width for the purpose of inserting line breaks (default 75)"))
+				.arg(clap::arg!(-v --verbose "Verbose output"))
 		).subcommand(
 			clap::Command::new("export")
 				.about("Exports dataset or table.")
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
 				.arg(clap::arg!(<path> "Path to the dataset"))
-				.arg(clap::arg!(<output> "Output file path").allow_invalid_utf8(true))
+				.arg(clap::arg!(<output> "Output path").allow_invalid_utf8(true))
+				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the dataset"))
+				.arg(clap::arg!(-f --format [format] "Format option: one of raw, npy (default raw)"))
+				.arg(clap::arg!(-v --verbose "Verbose output"))
+		).subcommand(
+			clap::Command::new("import")
+				.about("Imports dataset.")
+				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
+				.arg(clap::arg!(<path> "Path to the dataset"))
+				.arg(clap::arg!(<import> "Import path").allow_invalid_utf8(true))
 				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the dataset"))
 				.arg(clap::arg!(-v --verbose "Verbose output"))
 		).get_matches();
 
 	if let Some(matches) = matches.subcommand_matches("validate") {
-		let udf_path = matches.value_of_os("file").unwrap();
+		let file = matches.value_of_os("file").unwrap();
+		let verbose = matches.is_present("verbose");
 
-		let opts = validate::Options {
-			verbose: matches.is_present("verbose"),
-		};
-
-		if opts.verbose {
-			eprint!("opening {:?}... ", udf_path);
-		}
-		let udf_file = udf::FileIO::open(udf_path).expect("error opening file");
-		if opts.verbose {
-			eprintln!("ok");
-		}
-
-		let mut validator = validate::Validator::new(udf_file, opts);
-		validator.run();
+		let ref opts = validate::Options { file, verbose };
+		validate::run(opts);
 	}
 	else if let Some(matches) = matches.subcommand_matches("print") {
 		let file = matches.value_of_os("file").unwrap();
@@ -54,18 +54,36 @@ fn main() {
 		let line_width = matches.value_of_t::<u32>("line-width").unwrap_or(75);
 		let format = matches.value_of_t::<print::Format>("format").unwrap_or_default();
 
-		let opts = print::Options { file, file_offset, path, verbose, print_array, line_width, format };
-		print::run(&opts);
+		let ref opts = print::Options { file, file_offset, path, verbose, print_array, line_width, format };
+		print::run(opts);
 	}
 	else if let Some(matches) = matches.subcommand_matches("export") {
 		let file = matches.value_of_os("file").unwrap();
 		let file_offset = value_of_t::<udf::format::FileOffset>(matches, "file-offset");
 		let path = matches.value_of("path").unwrap_or("");
 		let output = matches.value_of_os("output").unwrap();
+		let format = match value_of_t::<export::Format>(matches, "format") {
+			Some(format) => format,
+			// Select a default format based on extension of the output
+			None => match Path::new(output).extension() {
+				Some(s) if s == "npy" => export::Format::Npy,
+				_ => export::Format::Raw,
+			},
+		};
 		let verbose = matches.is_present("verbose");
 
-		let opts = export::Options { file, file_offset, path, output, verbose };
-		export::run(&opts);
+		let ref opts = export::Options { file, file_offset, path, output, format, verbose };
+		export::run(opts);
+	}
+	else if let Some(matches) = matches.subcommand_matches("import") {
+		let file = matches.value_of_os("file").unwrap();
+		let file_offset = value_of_t::<udf::format::FileOffset>(matches, "file-offset");
+		let path = matches.value_of("path").unwrap_or("");
+		let import = matches.value_of_os("import").unwrap();
+		let verbose = matches.is_present("verbose");
+
+		let ref opts = import::Options { file, file_offset, path, import, verbose };
+		import::run(opts);
 	}
 	else {
 		unreachable!()
@@ -86,6 +104,7 @@ use self::error::StringError;
 mod validate;
 mod print;
 mod export;
+mod import;
 
 /*
 Ideas:
@@ -124,4 +143,12 @@ fn hex_dump(f: &mut dyn io::Write, bytes: &[u8]) -> io::Result<()> {
 		offset += 16;
 	}
 	Ok(())
+}
+
+#[repr(transparent)]
+pub struct Fmt<F: Fn(&mut fmt::Formatter) -> fmt::Result>(pub F);
+impl<F: Fn(&mut fmt::Formatter) -> fmt::Result> fmt::Display for Fmt<F> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		(self.0)(f)
+	}
 }

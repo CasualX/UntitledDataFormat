@@ -1,34 +1,47 @@
-use std::char;
+use std::{char, str};
+use std::ffi::OsStr;
+use std::path::Path;
 use std::collections::{HashSet, HashMap};
 
-use dataview::Pod;
+pub struct Options<'a> {
+	pub file: &'a OsStr,
+	pub verbose: bool,
+}
+
+pub fn run(opts: &Options) {
+	if opts.verbose {
+		eprint!("opening {:?}... ", opts.file);
+	}
+	let file = udf::FileIO::open(opts.file).expect("error opening file");
+	if opts.verbose {
+		eprintln!("ok");
+	}
+
+	let mut validator = Validator::new(file);
+	validator.run(opts);
+}
 
 struct Chain<'a> {
 	parent: Option<&'a Chain<'a>>,
 	dataset: udf::DatasetRef<'a>,
 }
 
-pub struct Options {
-	pub verbose: bool,
-}
-
 pub struct Validator {
 	file: udf::FileIO,
 	set: HashSet<udf::format::FileOffset>,
-	opts: Options,
 	datasets: usize,
 	warns: usize,
 	errors: usize,
 }
 
 impl Validator {
-	pub fn new(file: udf::FileIO, opts: Options) -> Validator {
-		Validator { file, set: HashSet::new(), opts, datasets: 0, warns: 0, errors: 0 }
+	pub fn new(file: udf::FileIO) -> Validator {
+		Validator { file, set: HashSet::new(), datasets: 0, warns: 0, errors: 0 }
 	}
 
-	pub fn run(&mut self) {
+	pub fn run(&mut self, opts: &Options) {
 		let root_fo = self.file.root();
-		self.run_rec(root_fo, None);
+		self.run_rec(opts, root_fo, None);
 
 		println!("Processed {} datasets", self.datasets);
 		if self.warns == 0 && self.errors == 0 {
@@ -42,7 +55,7 @@ impl Validator {
 		}
 	}
 
-	fn run_rec(&mut self, fo: udf::format::FileOffset, parent: Option<&Chain<'_>>) {
+	fn run_rec(&mut self, opts: &Options, fo: udf::format::FileOffset, parent: Option<&Chain<'_>>) {
 		// Null datasets are not necessary an error, may happen due to incremental writing
 		if fo.is_null() {
 			self.warns += 1;
@@ -78,7 +91,7 @@ impl Validator {
 		}
 
 		// Finally read the dataset
-		if self.opts.verbose {
+		if opts.verbose {
 			eprint!("reading dataset {:#x}:{:#x}... ", fo.offset, fo.size);
 		}
 		let dataset = match self.file.read_dataset(fo) {
@@ -90,7 +103,7 @@ impl Validator {
 			},
 		};
 		let dataset = dataset.as_ref();
-		if self.opts.verbose {
+		if opts.verbose {
 			eprintln!("ok");
 		}
 
@@ -178,7 +191,7 @@ impl Validator {
 				if let Some(data) = dataset.get_data_ref(table) {
 					let file_offsets = data.as_slice::<udf::format::FileOffset>().unwrap();
 					for &fo in file_offsets {
-						self.run_rec(fo, Some(&chain));
+						self.run_rec(opts, fo, Some(&chain));
 					}
 				}
 			}

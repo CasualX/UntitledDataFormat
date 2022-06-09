@@ -53,13 +53,13 @@ impl FileIO {
 
 	/// Opens an UDF file for editing.
 	///
-	/// Fails if the file does not yet exist.
+	/// Creates a new file if it does not exists.
 	#[inline]
 	pub fn edit(path: impl AsRef<Path>) -> io::Result<FileIO> {
 		Self::edit_(path.as_ref())
 	}
 	fn edit_(path: &Path) -> io::Result<FileIO> {
-		let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+		let mut file = fs::OpenOptions::new().read(true).write(true).create(true).open(path)?;
 		let mut header = format::UdfHeader::default();
 		file.read_exact(header.as_bytes_mut())?;
 		if header.magic != format::UdfHeader::MAGIC {

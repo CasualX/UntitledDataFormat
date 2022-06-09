@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str};
 use crate::*;
 
 /// File size formatter.
@@ -81,6 +81,30 @@ impl fmt::Display for PrintId {
 	}
 }
 
+impl str::FromStr for PrintId {
+	type Err = ParseError;
+	fn from_str(string: &str) -> Result<Self, ParseError> {
+		if string.len() > 4 {
+			return Err(ParseError::InvalidFormat);
+		}
+		let mut id = [0u8; 4];
+		let bytes = string.as_bytes();
+		if bytes.len() >= 1 {
+			id[0] = bytes[0];
+		}
+		if bytes.len() >= 2 {
+			id[1] = bytes[1];
+		}
+		if bytes.len() >= 3 {
+			id[2] = bytes[2];
+		}
+		if bytes.len() >= 4 {
+			id[3] = bytes[3];
+		}
+		Ok(PrintId(id))
+	}
+}
+
 /// Type info formatter.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, dataview::Pod)]
 #[repr(transparent)]
@@ -142,11 +166,72 @@ impl PrintTypeInfo {
 impl fmt::Display for PrintTypeInfo {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let type_info = self.0;
-		write!(f, "{:x?} {} {} {}",
-			type_info,
+		write!(f, "{}:{}:{}",
 			Self::hint(type_info).unwrap_or("?"),
 			Self::dim(type_info).unwrap_or("?"),
 			Self::prim(type_info).unwrap_or("?"),
 		)
+	}
+}
+
+impl str::FromStr for PrintTypeInfo {
+	type Err = ParseError;
+	fn from_str(string: &str) -> Result<Self, ParseError> {
+		let mut split = string.split(":");
+		let hint = match split.next() {
+			Some(hint) => hint,
+			None => return Err(ParseError::InvalidFormat),
+		};
+		let dim = match split.next() {
+			Some(dim) => dim,
+			None => return Err(ParseError::InvalidFormat),
+		};
+		let prim = match split.next() {
+			Some(prim) => prim,
+			None => return Err(ParseError::InvalidFormat),
+		};
+		let hint = match hint {
+			"none" => format::TYPE_HINT_NONE,
+			"text" => format::TYPE_HINT_TEXT,
+			"json" => format::TYPE_HINT_JSON,
+			"dataset" => format::TYPE_HINT_DATASET,
+			"xdataset" => format::TYPE_HINT_XDATASET,
+			"index" => format::TYPE_HINT_INDEX,
+			"range" => format::TYPE_HINT_RANGE,
+			"coord" => format::TYPE_HINT_COORD,
+			"line" => format::TYPE_HINT_HATCH,
+			"transform" => format::TYPE_HINT_TRANSFORM,
+			"color" => format::TYPE_HINT_COLOR,
+			"time" => format::TYPE_HINT_TIME,
+			"uts" => format::TYPE_HINT_UTS,
+			"guid" => format::TYPE_HINT_GUID,
+			"file" => format::TYPE_HINT_FILE,
+			_ => return Err(ParseError::InvalidFormat),
+		};
+		let dim = match dim {
+			"scalar" => format::TYPE_DIM_SCALAR,
+			"1d" => format::TYPE_DIM_1D,
+			"2d" => format::TYPE_DIM_2D,
+			"3d" => format::TYPE_DIM_3D,
+			_ => return Err(ParseError::InvalidFormat),
+		};
+		let prim = match prim {
+			"custom" => format::TYPE_PRIM_CUSTOM,
+			"bit" => format::TYPE_PRIM_BIT,
+			"u8" => format::TYPE_PRIM_U8,
+			"i8" => format::TYPE_PRIM_I8,
+			"u16" => format::TYPE_PRIM_U16,
+			"i16" => format::TYPE_PRIM_I16,
+			"u32" => format::TYPE_PRIM_U32,
+			"i32" => format::TYPE_PRIM_I32,
+			"u64" => format::TYPE_PRIM_U64,
+			"i64" => format::TYPE_PRIM_I64,
+			"bfloat16" => format::TYPE_PRIM_BFLOAT16,
+			"f32" => format::TYPE_PRIM_F32,
+			"f64" => format::TYPE_PRIM_F64,
+			"decimal" => format::TYPE_PRIM_DECIMAL,
+			_ => return Err(ParseError::InvalidFormat),
+		};
+		Ok(PrintTypeInfo(hint | dim | prim))
 	}
 }

@@ -109,11 +109,19 @@ impl<'a> fmt::Debug for NamesRef<'a> {
 	}
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct NameOrHash<'a>(pub Result<&'a str, u32>);
 
 impl<'a> fmt::Display for NameOrHash<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self.0 {
+			Ok(name) => write!(f, "{}", name),
+			Err(hash) => write!(f, "{:#010x}", hash),
+		}
+	}
+}
+impl<'a> fmt::Debug for NameOrHash<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self.0 {
 			Ok(name) => write!(f, "{:?}", name),
