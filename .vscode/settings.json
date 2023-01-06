@@ -1,0 +1,8 @@
+{
+	"rust-analyzer.linkedProjects": [
+		"rust/Cargo.toml"
+	],
+	"files.associations": {
+		"*.vue": "html"
+	}
+}
