@@ -98,7 +98,7 @@ The following diagram shows the information packed in the type info field:
 |      Byte[1]      |        Byte[0]        |
 | 7 6 | 5 4 3 2 1 0 | 7 | 6 | 5 4 | 3 2 1 0 |
 |-------------------|---|---|-----|---------|
-| y   |        hint | x |   | dim |    prim |
+|     |        hint | x |   | dim |    prim |
 +-------------------------------------------+
 ```
 

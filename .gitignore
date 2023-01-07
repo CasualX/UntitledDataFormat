@@ -1,0 +1,9 @@
+# Cargo
+Cargo.lock
+target/
+
+# Temp files
+*.udf
+*.txt
+*.npy
+*.ini

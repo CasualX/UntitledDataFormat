@@ -1,0 +1,13 @@
+[package]
+name = "udf"
+version = "0.1.0"
+edition = "2018"
+
+[profile.release]
+panic = "abort"
+
+[dependencies]
+dataview = "1.0"
+
+[dev-dependencies]
+urandom = "0.1"
