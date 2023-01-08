@@ -1,0 +1,1041 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>UDF Viewer</title>
+	<!-- <link rel="icon" type="image/svg+xml" href="./favicon.svg" /> -->
+	<script src="./deps/vue.prod.js"></script>
+	<script type="module" src="./deps/udf.mjs"></script>
+
+<style>
+.view-data-grid {
+	overflow: auto;
+}
+.view-data-grid table {
+	text-align: right;
+	border-spacing: 3px;
+
+	margin: 10px;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+.view-data-grid table th {
+	font-weight: normal;
+	user-select: none;
+	color: var(--udf-color-description);
+	background-color: var(--udf-color-background);
+	padding: 2px 6px;
+}
+.view-data-grid table thead th {
+	position: sticky;
+	top: 0;
+	border-bottom: 1px solid var(--udf-color-border-light);
+	padding: 4px 6px;
+}
+.view-data-grid table td {
+	padding: 2px 6px;
+}
+</style>
+<style>
+.view-data-sets {
+	overflow: auto;
+}
+.view-data-sets table {
+	text-align: right;
+	border-spacing: 2px;
+
+	margin: 12px;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+.view-data-sets table th {
+	font-weight: normal;
+	user-select: none;
+	color: rgb(150, 150, 150);
+	background-color: var(--udf-color-background);
+	padding: 0 6px;
+}
+.view-data-sets table thead th {
+	position: sticky;
+	top: 0;
+}
+.view-data-sets table td {
+	padding: 0 6px;
+}
+</style>
+<style>
+.view-data-text {
+	overflow: auto;
+	padding: 12px;
+}
+</style>
+<style>
+.view-dataset {
+	display: grid;
+	grid-template: auto / 400px auto;
+}
+.view-dataset > .info {
+	padding: 12px;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+.view-dataset > .info:not(.has_viewer) {
+	grid-column: span 2;
+}
+.view-dataset > .info.has_viewer {
+	border-right: solid 1px var(--udf-color-border);
+}
+.view-dataset > .info .key_name {
+	color: var(--udf-color-light);
+	font-size: 1rem;
+	font-weight: 500;
+	margin: 24px 0 6px 0;
+}
+.view-dataset > .info .props {
+	display: grid;
+	grid-template-columns: 150px auto;
+}
+.view-dataset > .info .link {
+	user-select: none;
+}
+</style>
+<style>
+.view-header {
+	margin: 12px;
+}
+.view-header > .props {
+	display: grid;
+	grid-template-columns: 150px auto;
+}
+</style>
+<style>
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('./deps/Inter.woff2') format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC,
+		U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: 'Roboto Mono';
+	font-style: normal;
+	font-weight: 100 700;
+	font-display: swap;
+	src: url('./deps/Roboto Mono.woff2') format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC,
+		U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+	--udf-links: hsl(213 94% 68%);
+	--udf-links-hover: hsl(217 91% 60%);
+	--udf-links-underline: hsl(217 91% 60% / 0.3);
+	--udf-footer: hsl(221 83% 53% / 0.5);
+	--udf-color-off-white: hsl(240 7% 98%);
+	--udf-color-light: hsl(240 6% 90%);
+	--udf-color-body: hsl(240 5% 65%);
+	--udf-color-description: hsl(240 4% 46%);
+	--udf-color-border-light: hsl(240 5% 34%);
+	--udf-color-background: hsl(240 6% 10%);
+	--udf-color-border: hsl(0 0% 100% / 0.1);
+	--udf-color-background-highlight: hsl(0 0% 100% / 0.03);
+}
+
+html, body, #app, .app-main {
+	font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+		'Helvetica Neue', 'Noto Sans', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+		'Noto Color Emoji';
+	font-weight: 350;
+	font-size: 16px;
+	background-color: var(--udf-color-background);
+	color: var(--udf-color-body);
+	padding: 0;
+	margin: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+.app-main {
+	display: grid;
+	grid-template: 42px calc(100% - 42px - 32px) 32px / auto;
+}
+
+.app-main > .header {
+	background-color: var(--udf-color-background-highlight);
+	display: grid;
+	grid-template: auto / 200px auto min-content 48px;
+	align-items: center;
+	border-bottom: 1px solid var(--udf-color-border);
+}
+
+.app-main > .header > .logo {
+	user-select: none;
+	padding-left: 12px;
+	display: flex;
+}
+.app-main > .header > .logo > span {
+	align-self: flex-end;
+	margin-bottom: -4px;
+	height: 24px;
+	font-weight: 500;
+	font-size: 18px;
+	color: var(--udf-color-body);
+	margin-left: 8px;
+}
+.app-main > .header > .logo > svg {
+	width: 50px;
+	color: var(--udf-color-light);
+}
+
+.app-main > .header > .fn {
+	justify-self: end;
+}
+.app-main > .header > .x {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	user-select: none;
+	width: 42px;
+	padding: 0px 12px;
+	color: var(--udf-color-body);
+}
+.app-main > .header > .x > svg {
+	width: 1.25rem;
+	height: 1.25rem;
+}
+.app-main > .header > .x:hover {
+	color: white;
+}
+
+.app-main > .m {
+	background-color: var(--udf-color-background);
+	padding: 12px;
+}
+
+.app-main > .footer {
+	display: flex;
+	align-items: center;
+	background-color: var(--udf-footer);
+	color: #fff;
+	padding-left: 12px;
+	font-size: 0.875rem;
+}
+
+.mono {
+	font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+		'Courier New', monospace;
+}
+
+.key {
+	color: var(--udf-color-description);
+}
+
+a, .link {
+	color: var(--udf-links);
+	text-decoration: underline transparent;
+	cursor: pointer;
+}
+
+a:hover, .link:hover {
+	color: var(--udf-links-hover);
+	text-decoration: underline var(--udf-links-underline);
+}
+
+.dnd-container {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	justify-items: center;
+	justify-content: center;
+	align-items: center;
+	border-radius: 0.75rem;
+	border: 2px dashed var(--udf-color-border-light);
+	padding: 1.5rem;
+}
+
+.dnd-container > svg {
+	height: 42px;
+	width: 42px;
+	color: var(--udf-color-description);
+	margin-bottom: 0.5rem;
+}
+
+.dnd-container > * + * {
+	margin-top: 0.5rem;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border-width: 0;
+}
+.description {
+	color: var(--udf-color-description);
+}
+.text-sm {
+	font-size: 0.875rem;
+}
+
+.thin-sb {
+	/* Foreground, Background */
+	scrollbar-color: var(--udf-color-description) var(--udf-color-background);
+	scrollbar-width: thin;
+}
+.thin-sb::-webkit-scrollbar {
+	width: 10px; /* Vertical scrollbars */
+	height: 10px; /* Horizontal scrollbars */
+}
+.thin-sb::-webkit-scrollbar-thumb {
+	background: var(--udf-color-description); /* Foreground */
+}
+.thin-sb::-webkit-scrollbar-track {
+	background: var(--udf-color-background); /* Background */
+}
+</style>
+<style>
+.app-viewer {
+	display: grid;
+	grid-template: 100% / 216px auto;
+}
+.app-viewer > .entries {
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto;
+	overflow-x: hidden;
+	height: auto;
+	border-right: 1px solid var(--udf-color-border);
+	padding: 12px;
+	font-size: 0.875rem;
+}
+.app-viewer > .entries > div {
+	user-select: none;
+	cursor: pointer;
+	display: grid;
+	grid-template: 32px / auto 32px;
+	border-radius: 0.5rem;
+	margin-bottom: 4px;
+}
+.app-viewer > .entries > div > .title {
+	padding: 6px 12px;
+	border-radius: 0.5rem;
+	display: flex;
+	align-items: center;
+	transition: color 100ms;
+}
+
+.app-viewer > .entries > div > div:hover {
+	color: var(--udf-color-off-white);
+}
+
+.app-viewer > .entries > div > .not_x {
+	grid-column: span 2;
+}
+.app-viewer > .entries > div > .x {
+	display: none;
+	border-radius: 0.5rem;
+	transition: color 100ms;
+}
+
+.app-viewer > .entries > div > div.x > svg {
+	width: 1.25rem;
+	height: 1.25rem;
+	color: var(--udf-color-description);
+}
+
+.app-viewer > .entries > div:hover > .x:hover > svg {
+	color: var(--udf-color-off-white);
+}
+
+.app-viewer > .entries > div:hover > div.x {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.app-viewer > .entries > div:not(.active) > div:hover {
+	background-color: var(--udf-color-background-highlight);
+}
+.app-viewer > .entries > div.active {
+	background-color: var(--udf-color-background-highlight);
+	color: var(--udf-color-off-white);
+}
+.app-viewer > .content {
+	display: grid;
+	grid-template: 100% / 100%;
+}
+</style>
+</head>
+<body>
+
+<template id="view-data-grid">
+	<div class="view-data-grid thin-sb" @scroll.passive="scrolled" ref="container">
+		<table v-if="desc.data_shape.length == 0" class="mono" ref="table">
+			<tr>
+				<td>{{ data[0] }}</td>
+			</tr>
+		</table>
+		<table v-else-if="desc.data_shape.length == 1" class="mono" ref="table">
+			<tbody>
+				<tr :style="{ height: pad_top }"></tr>
+				<tr v-for="i in rows" :key="i">
+					<th>{{ i }}</th>
+					<td>{{ data[i] }}</td>
+				</tr>
+				<tr :style="{ height: pad_bottom }"></tr>
+			</tbody>
+		</table>
+		<table v-else-if="desc.data_shape.length == 2" class="mono" ref="table">
+			<thead>
+				<tr>
+					<th></th>
+					<th v-for="j in desc.data_shape[1]" :key="j">{{ j - 1 }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr :style="{ height: pad_top }"></tr>
+				<tr v-for="i in rows" :key="i">
+					<th>{{ i }}</th>
+					<td v-for="j in desc.data_shape[1]" :key="j">{{ data[i * desc.data_shape[1] + (j - 1)] }}</td>
+				</tr>
+				<tr :style="{ height: pad_bottom }"></tr>
+			</tbody>
+		</table>
+		<div v-else>Not implemented</div>
+	</div>
+</template>
+<template id="view-data-sets">
+	<div class="view-data-sets thin-sb">
+		<table class="mono">
+			<tr v-for="i in data.length / 2">
+				<th>{{ i - 1 }}</th>
+				<td class="link" @click="clickDataset($event, i - 1)">{{ printFileOffset(getFileOffset(i - 1)) }}</td>
+			</tr>
+		</table>
+	</div>
+</template>
+<template id="view-data-text">
+	<div class="view-data-text">
+		<pre class="mono" readonly="readonly">{{ text }}</pre>
+	</div>
+</template>
+<template id="view-dataset">
+	<div class="view-dataset">
+		<div class="info thin-sb" :class="{ 'has_viewer': viewer_component != null }">
+			<div class="props">
+				<div class="key">File offset</div>
+				<div class="value">{{ printFileOffset(props.file_offset) }}</div>
+				<div class="key">File size</div>
+				<div class="value">{{ printFileSize(props.file_offset.size) }}</div>
+				<div class="key">Id</div>
+				<div class="value">{{ props.id }}</div>
+			</div>
+			<template v-for="[index, desc] in props.tables.entries()" :key="index">
+				<h2 class="key_name">{{ desc.key_name }}</h2>
+				<div class="props">
+					<div class="key">Type info</div>
+					<div class="value">{{ printTypeInfo(desc.type_info) }}</div>
+					<template v-if="desc.type_name">
+						<div class="key">Type name</div>
+						<div class="value">{{ desc.type_name }}</div>
+					</template>
+					<div class="key">Data size</div>
+					<div class="value">{{ printFileSize(desc.data_size) }}</div>
+					<div class="key">Data shape</div>
+					<div class="value">{{ printShape(desc.data_shape) }}</div>
+					<template v-if="desc.index_name">
+						<div class="key">Index</div>
+						<div class="value">{{ desc.index_name }}</div>
+					</template>
+					<template v-if="desc.related_name">
+						<div class="key">Related</div>
+						<div class="value">{{ desc.related_name }}</div>
+					</template>
+				</div>
+				<div v-if="getViewerComponent(desc)" class="link" @click="viewData(desc)">View data</div>
+			</template>
+		</div>
+		<component
+			v-if="viewer_component"
+			:is="viewer_component"
+			:desc="view_desc"
+			:data="view_data"
+			@read-dataset="readDataset"
+		></component>
+	</div>
+</template>
+<template id="view-header">
+	<div class="view-header">
+		<div class="props">
+			<div class="key">Magic</div>
+			<div class="value">{{ props.magic }}</div>
+			<div class="key">File size</div>
+			<div class="value">{{ printFileSize(reader.io.size) }}</div>
+			<div class="key">Id</div>
+			<div class="value">{{ props.id }}</div>
+			<div class="key">Root</div>
+			<div class="value" :class="{ 'link': props.root.offset != 0 }" @click="readDataset(props.root)">
+				{{ printFileOffset(props.root) }}
+			</div>
+		</div>
+	</div>
+</template>
+<template id="app-main">
+	<div class="app-main" @drop="dropFile" @dragenter="">
+		<div class="header">
+			<div class="logo">
+				<svg viewBox="0 0 422 170" xmlns="http://www.w3.org/2000/svg">
+					<path
+						d="M40.6978 164.435C32.77 161.086 25.6421 156.267 19.5279 150.155C13.4165 144.041 8.61915 136.912 5.25 128.984C1.77246 120.754 0 112.027 0 103.04V0H33.9156V103.04C33.9156 121.078 48.605 135.768 66.6431 135.768C84.6812 135.768 99.3677 121.078 99.3677 103.04V0H133.285V103.04C133.285 112.027 131.512 120.754 128.035 128.984C124.686 136.912 119.87 144.041 113.755 150.155C107.641 156.267 100.513 161.063 92.5854 164.435C84.3559 167.912 75.6284 169.682 66.643 169.682C57.6548 169.682 48.9302 167.912 40.6978 164.435Z"
+						fill="currentColor"
+					/>
+					<path
+						d="M154.241 168.712V0H209.54C220.989 0 232.093 2.18115 242.549 6.50244C252.703 10.6919 261.817 16.7197 269.616 24.3882C277.459 32.1006 283.635 41.1299 287.936 51.1963C292.386 61.6304 294.653 72.7544 294.653 84.2476C294.653 95.7393 292.386 106.865 287.936 117.319C283.635 127.409 277.48 136.439 269.637 144.19C261.817 151.904 252.724 157.954 242.569 162.167C232.116 166.509 220.989 168.712 209.54 168.712L154.241 168.712ZM209.54 134.795C223.301 134.795 236.177 129.568 245.833 120.041C255.445 110.558 260.736 97.834 260.736 84.2476C260.736 70.6816 255.445 58.0225 245.854 48.583C236.221 39.1201 223.324 33.9141 209.54 33.9141H188.155V134.795H209.54Z"
+						fill="currentColor"
+					/>
+					<path
+						d="M311.178 168.495H345.092V103.257H421.995V71.0698H311.178V168.495ZM311.178 0V32.187H421.995V0H311.178Z"
+						fill="currentColor"
+					/>
+				</svg>
+				<span>Viewer</span>
+			</div>
+			<div></div>
+			<div v-if="reader != null" class="fn">{{ reader.name }}</div>
+			<div v-else></div>
+			<div v-if="reader != null" class="x" @click="closeFile">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</div>
+			<div v-else></div>
+		</div>
+
+		<div class="m" v-if="reader == null">
+			<div class="dnd-container">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+					/>
+				</svg>
+				<label for="file-upload" class="link">
+					<span>Provide a UDF file</span>
+					<input @input="fileInput" id="file-upload" name="file-upload" type="file" class="sr-only" />
+				</label>
+				<span class="text-sm" style="margin-bottom: 8px">or drag and drop one anywhere on the page.</span>
+				<span class="text-sm description">Don't have a UDF file? Try one of the sample files:</span>
+				<div>
+					<template v-for="(name, index) in ['empty', 'sample', 'bunny', 'seahorse']">
+						{{ index != 0 ? ", " : "" }}
+						<a class="text-sm" :href="`samples/${name}.udf`" @click.prevent="sampleInput($event)">{{ name }}.udf</a>
+					</template>
+				</div>
+			</div>
+		</div>
+		<app-viewer v-if="reader != null" :reader="reader" @set-status="setStatusLine"></app-viewer>
+		<div class="footer">{{ status }}</div>
+	</div>
+</template>
+<template id="app-viewer">
+	<div class="app-viewer">
+		<div class="entries mono thin-sb">
+			<div
+				v-for="[index, entry] in Object.entries(entries)"
+				:key="entry.key"
+				@click="selected_index = index"
+				:class="{'active': selected_index == index}"
+			>
+				<div class="title" :class="{ 'not_x': !entry.x}">{{ entry.title }}</div>
+				<div v-if="entry.x" class="x" @click="closeView(index)">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</div>
+			</div>
+		</div>
+		<div class="content">
+			<component
+				v-if="selected"
+				:is="selected.component"
+				:reader="reader"
+				:entry="selected"
+				:props="selected.props"
+				@read-dataset="readDataset"
+				@set-status="setStatusLine"
+			></component>
+			<template v-else>Placeholder</template>
+		</div>
+	</div>
+</template>
+<div id="app">
+	<app-main></app-main>
+</div>
+<noscript>UDF Viewer is a WebApp and requires JS.</noscript>
+</body>
+
+<script>
+'use strict';
+
+const ROW_HEIGHT = 25;
+const VIRTUAL_ROWS = 160;
+
+var ViewDataGrid = {
+	name: 'view-data-grid',
+	data() {
+		return {
+			row_start: 0,
+		};
+	},
+	props: [
+		'desc',
+		'data',
+	],
+	computed: {
+		pad_top() {
+			return (this.row_start * ROW_HEIGHT) + 'px';
+		},
+		pad_bottom() {
+			let end = Math.max(0, this.desc.data_shape[0] - (this.row_start + VIRTUAL_ROWS));
+			return (end * ROW_HEIGHT) + 'px';
+		},
+		rows() {
+			let start = this.row_start;
+			let end = Math.min(start + VIRTUAL_ROWS, this.desc.data_shape[0]);
+			let rows = [];
+			for (let i = start; i < end; i += 1) {
+				rows.push(i);
+			}
+			return rows;
+		},
+	},
+	watch: {
+		desc(oldv, newv) {
+			this.row_start = 0;
+			let container = this.$refs.container;
+			if (container) {
+				container.scrollTop = 0;
+			}
+		},
+	},
+	methods: {
+		scrolled(e) {
+			let table = this.$refs.table;
+			if (table) {
+				this.update(table.getBoundingClientRect());
+			}
+		},
+		update(rc) {
+			let n = Math.max(0, Math.floor(-rc.y / ROW_HEIGHT) - 10);
+			this.row_start = n;
+		},
+	},
+	template: '#view-data-grid',
+};
+</script>
+<script>
+'use strict';
+
+var ViewDataSets = {
+	name: 'view-data-sets',
+	data() {
+		return {};
+	},
+	props: [
+		'desc',
+		'data',
+	],
+	emits: [
+		'read-dataset',
+	],
+	methods: {
+		getFileOffset(index, lazy) {
+			return {
+				offset: Number(this.data[index * 2]),
+				size: Number(this.data[index * 2 + 1]),
+			};
+		},
+		printFileOffset(fo) {
+			return udf.printFileOffset(fo);
+		},
+		clickDataset(event, index) {
+			let fo = { ...this.getFileOffset(index), lazy: event.ctrlKey };
+			this.$emit('read-dataset', fo);
+		},
+	},
+	template: '#view-data-sets',
+};
+</script>
+<script>
+'use strict';
+
+var ViewDataText = {
+	name: 'view-data-text',
+	props: [
+		'desc',
+		'data',
+	],
+	data() {
+		return {};
+	},
+	computed: {
+		text() {
+			if (typeof this.data == 'string') {
+				return this.data;
+			}
+			return JSON.stringify(this.data, null, 4);
+		},
+	},
+	template: '#view-data-text',
+};
+</script>
+<script>
+'use strict';
+
+var ViewDataset = {
+	name: 'view-dataset',
+	data() {
+		return {
+			view_desc: null,
+			view_data: null,
+		};
+	},
+	props: [
+		'reader',
+		'entry',
+		'props',
+	],
+	emits: [
+		'read-dataset',
+		'set-status',
+	],
+	computed: {
+		viewer_component() {
+			if (this.view_desc == null || this.view_data == null) {
+				return null;
+			}
+			return this.getViewerComponent(this.view_desc, this.view_data);
+		},
+	},
+	watch: {
+		props(oldv, newv) {
+			this.view_desc = window.udf$desc = null;
+			this.view_data = window.udf$data = null;
+		},
+	},
+	methods: {
+		setStatusLine(line) {
+			this.$emit('set-status', line);
+		},
+		async viewData(desc) {
+			try {
+				this.setStatusLine(`Reading data ${desc.key_name}...`);
+				let data = await this.reader.readData(desc);
+				this.setStatusLine(`Reading data ${desc.key_name}... ok`);
+				this.view_desc = window.udf$desc = desc;
+				this.view_data = window.udf$data = data;
+			}
+			catch (ex) {
+				console.error(ex);
+				this.setStatusLine(`Reading data ${desc.key_name}... error: ${ex}`);
+			}
+		},
+		getViewerComponent(desc, data) {
+			let { hint, dim, prim } = udf.decodeTypeInfo(desc.type_info);
+			if (typeof data == 'string') {
+				return 'view-data-text';
+			}
+			if (hint == udf.TYPE_HINT_JSON || (data && (data.__proto__ == Object.prototype || data.__proto__ == Array.prototype))) {
+				return 'view-data-text';
+			}
+			if (hint == udf.TYPE_HINT_DATASET) {
+				return 'view-data-sets';
+			}
+			if (prim >= udf.TYPE_PRIM_U8 && prim <= udf.TYPE_PRIM_F64) {
+				return 'view-data-grid';
+			}
+			// Unknown type, default to hex viewer
+			return null;
+		},
+		readDataset(fo) {
+			this.$emit('read-dataset', fo);
+		},
+		printTypeInfo(type_info) {
+			return udf.printTypeInfo(type_info);
+		},
+		printFileSize(file_size) {
+			return udf.printFileSize(file_size);
+		},
+		printFileOffset(fo) {
+			return udf.printFileOffset(fo);
+		},
+		printShape(shape) {
+			return udf.printShape(shape);
+		},
+	},
+	template: '#view-dataset',
+};
+</script>
+<script>
+'use strict';
+
+var ViewHeader = {
+	name: 'view-header',
+	data() {
+		return {};
+	},
+	props: [
+		'reader',
+		'entry',
+		'props',
+	],
+	emits: [
+		'read-dataset',
+	],
+	methods: {
+		readDataset(fo) {
+			if (fo.offset != 0) {
+				this.$emit('read-dataset', fo);
+			}
+		},
+		printFileSize(file_size) {
+			return udf.printFileSize(file_size);
+		},
+		printFileOffset(fo) {
+			return udf.printFileOffset(fo);
+		},
+	},
+	template: '#view-header',
+};
+</script>
+<script>
+'use strict';
+
+var udf = null;
+import('./deps/udf.mjs').then(udf => (window.udf = udf));
+
+function argv() {
+	let result = {};
+	for (var arg of window.location.hash.substring(1).split("&")) {
+		let pos = arg.indexOf("=");
+		if (pos >= 0) {
+			result[arg.substring(0, pos)] = decodeURIComponent(arg.substring(pos + 1));
+		}
+	}
+	return result;
+}
+
+var AppMain = {
+	name: 'app-main',
+	data() {
+		return {
+			reader: null,
+			status: "",
+		};
+	},
+	methods: {
+		fileInput(e) {
+			let files = [...e.target.files];
+			// Clears the file input otherwise the same file cannot be submitted again
+			e.target.value = null;
+			// Expect a single file object
+			if (files.length != 1) {
+				alert(`Expected a single file, got ${files.length} files`);
+				return;
+			}
+			let file = files[0];
+			this.reader = window.udf$reader = new udf.UdfReader(file);
+			this.reader.name = file.name;
+		},
+		dropFile(e) {
+			if (this.reader != null) {
+				return;
+			}
+			let files = [...e.dataTransfer.files];
+			// Expect a single file object
+			if (files.length != 1) {
+				alert(`Expected a single file, got ${files.length} files`);
+				return;
+			}
+			let file = files[0];
+			this.reader = window.udf$reader = new udf.UdfReader(new udf.BlobIO(file));
+			this.reader.name = file.name;
+		},
+		closeFile(e) {
+			this.reader = window.udf$reader = null;
+			this.status = "";
+		},
+		setStatusLine(line) {
+			this.status = line;
+		},
+		async sampleInput(event) {
+			let name = event.target.textContent;
+			let url = event.target.href;
+			let io;
+			if (window.location.protocol == 'file:') {
+				let response = await fetch(url);
+				let blob = await response.blob();
+				io = new udf.BlobIO(blob);
+				io.size = blob.size;
+			}
+			else {
+				io = new udf.UrlIO(url, {});
+
+				// Get the file size
+				let response = await fetch(url, { method: 'HEAD' });
+				let accept_ranges = response.headers.get('accept-ranges');
+				let content_length = response.headers.get('content-length');
+				if (accept_ranges == "bytes" && content_length != null) {
+					io.size = parseInt(content_length);
+				}
+			}
+			this.reader = window.udf$reader = new udf.UdfReader(io);
+			this.reader.name = name;
+		},
+	},
+	created() {
+		// Make dropping files work...
+		function preventDefaults(e) {
+			e.preventDefault();
+		}
+		for (let eventName of ['dragenter', 'dragover', 'dragleave', 'drop']) {
+			document.body.addEventListener(eventName, preventDefaults);
+		}
+	},
+	template: '#app-main',
+};
+</script>
+<script>
+'use strict';
+
+var AppViewer = {
+	name: 'app-viewer',
+	data() {
+		return {
+			selected_index: "header",
+			entries: {},
+		};
+	},
+	props: [
+		'reader',
+	],
+	emits: [
+		'set-status',
+	],
+	computed: {
+		selected() {
+			return this.entries[this.selected_index];
+		},
+	},
+	methods: {
+		openView(entry, lazy) {
+			let existing = this.entries[entry.key];
+			if (!existing) {
+				this.entries[entry.key] = entry;
+			}
+			if (!lazy) {
+				this.selected_index = entry.key;
+				if (entry.component == 'view-dataview') {
+					window.udf$dataset = entry.props;
+				}
+			}
+		},
+		closeView(index) {
+			if (index == this.selected_index) {
+				this.selected_index = "header";
+			}
+			delete this.entries[index];
+		},
+		setStatusLine(line) {
+			this.$emit('set-status', line);
+		},
+		async readDataset(fo) {
+			let key = udf.printFileOffset(fo);
+			if (this.entries.hasOwnProperty(key)) {
+				if (!fo.lazy) {
+					this.selected_index = key;
+				}
+				return;
+			}
+			try {
+				this.setStatusLine(`Reading ${key}...`);
+				let dataset = await this.reader.readDatasetHeader(fo);
+				this.openView({
+					key: key,
+					title: key,
+					component: 'view-dataset',
+					view_desc: null,
+					props: dataset,
+					x: true,
+				}, fo.lazy);
+				this.setStatusLine(`Reading ${key}... ok`);
+			}
+			catch (ex) {
+				console.error(`Reading ${key}`, ex);
+				this.setStatusLine(`Reading ${key}... error: ${ex}`);
+			}
+		},
+	},
+	async created() {
+		this.setStatusLine(`Reading header...`);
+		try {
+			let header = window.udf$header = await this.reader.readFileHeader();
+			this.openView({
+				key: "header",
+				title: "Header",
+				component: 'view-header',
+				props: header,
+				x: false,
+			});
+			this.setStatusLine(`Reading header... ok`);
+		}
+		catch (ex) {
+			console.error("Reading header", ex);
+			this.setStatusLine(`Reading header... error: ${ex}`);
+		}
+	},
+	template: '#app-viewer',
+};
+</script>
+<script>
+Vue.createApp({
+	data() {
+		return {};
+	},
+}).component('app-main', AppMain)
+	.component('app-viewer', AppViewer)
+	.component('view-header', ViewHeader)
+	.component('view-dataset', ViewDataset)
+	.component('view-data-sets', ViewDataSets)
+	.component('view-data-grid', ViewDataGrid)
+	.component('view-data-text', ViewDataText)
+	.mount('#app');
+</script>
+</html>
+
