@@ -62,7 +62,7 @@ fn main() {
 				bytes: metadata.as_bytes(),
 				type_info: udf::format::TYPE_HINT_JSON | udf::format::TYPE_DIM_1D | udf::format::TYPE_PRIM_CUSTOM,
 				compress_info: udf::format::COMPRESS_NONE,
-				shape: [2, 0],
+				shape: udf::Shape::D1(2),
 			},
 			..Default::default()
 		});
@@ -92,7 +92,7 @@ fn main() {
 				bytes: parts_info.as_bytes(),
 				type_info: udf::format::TYPE_HINT_JSON | udf::format::TYPE_DIM_1D | udf::format::TYPE_PRIM_CUSTOM,
 				compress_info: udf::format::COMPRESS_NONE,
-				shape: [0, 0],
+				shape: udf::Shape::D1(0),
 			},
 			..Default::default()
 		});

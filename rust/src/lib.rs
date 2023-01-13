@@ -1,6 +1,4 @@
 
-use dataview::PodMethods;
-
 pub mod format;
 
 mod fileio;

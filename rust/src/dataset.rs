@@ -52,7 +52,7 @@ impl Dataset {
 		let type_info = table_ref.data.type_info;
 		let compress_info = table_ref.data.compress_info;
 		let data_size = table_ref.data.bytes.len() as u32;
-		let data_shape = table_ref.data.shape;
+		let data_shape = table_ref.data.shape.encode();
 
 		self.descs.push(format::TableDesc {
 			key_name,

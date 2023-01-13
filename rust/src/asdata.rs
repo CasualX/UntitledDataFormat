@@ -15,7 +15,7 @@ macro_rules! impl_as_data_ref_prim {
 					bytes: dataview::bytes(self),
 					type_info: format::TYPE_HINT_NONE | format::TYPE_DIM_SCALAR | format::$prim_type,
 					compress_info: format::COMPRESS_NONE,
-					shape: [1, 0],
+					shape: Shape::D1(1),
 				}
 			}
 		}
@@ -26,7 +26,7 @@ macro_rules! impl_as_data_ref_prim {
 					bytes: dataview::bytes(self),
 					type_info: format::TYPE_HINT_NONE | format::TYPE_DIM_1D | format::$prim_type,
 					compress_info: format::COMPRESS_NONE,
-					shape: [self.len() as u32, 0],
+					shape: Shape::D1(self.len() as u32),
 				}
 			}
 		}
@@ -37,7 +37,7 @@ macro_rules! impl_as_data_ref_prim {
 					bytes: dataview::bytes(self),
 					type_info: format::TYPE_HINT_NONE | format::TYPE_DIM_SCALAR | format::$prim_type,
 					compress_info: format::COMPRESS_NONE,
-					shape: [self.len() as u32, 0],
+					shape: Shape::D1(self.len() as u32),
 				}
 			}
 		}
@@ -49,7 +49,7 @@ macro_rules! impl_as_data_ref_prim {
 					bytes: dataview::bytes(self),
 					type_info: format::TYPE_HINT_NONE | format::TYPE_DIM_1D | format::$prim_type,
 					compress_info: format::COMPRESS_NONE,
-					shape: [self.len() as u32, LEN as u32],
+					shape: Shape::D2(self.len() as u32, LEN as u32),
 				}
 			}
 		}
@@ -61,7 +61,7 @@ macro_rules! impl_as_data_ref_prim {
 					bytes: dataview::bytes(self),
 					type_info: format::TYPE_HINT_NONE | format::TYPE_DIM_SCALAR | format::$prim_type,
 					compress_info: format::COMPRESS_NONE,
-					shape: [N as u32, M as u32],
+					shape: Shape::D2(N as u32, M as u32),
 				}
 			}
 		}
@@ -74,7 +74,7 @@ macro_rules! impl_as_data_ref_prim {
 					bytes: dataview::bytes(self),
 					type_info: format::TYPE_HINT_NONE | format::TYPE_DIM_1D | format::$prim_type,
 					compress_info: format::COMPRESS_NONE,
-					shape: [self.len() as u32, N as u32 | (M as u32) << 24],
+					shape: Shape::D3(self.len() as u32, N as u32, M as u8),
 				}
 			}
 		}
@@ -103,7 +103,7 @@ macro_rules! impl_as_data_ref_typed {
 					bytes: dataview::bytes(self),
 					type_info: format::$hint | format::TYPE_DIM_SCALAR | format::$prim,
 					compress_info: format::COMPRESS_NONE,
-					shape: [$elts, 0],
+					shape: Shape::D1($elts),
 				}
 			}
 		}
@@ -114,7 +114,7 @@ macro_rules! impl_as_data_ref_typed {
 					bytes: dataview::bytes(self),
 					type_info: format::$hint | format::TYPE_DIM_1D | format::$prim,
 					compress_info: format::COMPRESS_NONE,
-					shape: [self.len() as u32, $elts],
+					shape: Shape::D2(self.len() as u32, $elts),
 				}
 			}
 		}
@@ -125,7 +125,7 @@ macro_rules! impl_as_data_ref_typed {
 					bytes: dataview::bytes(self),
 					type_info: format::$hint | format::TYPE_DIM_1D | format::$prim,
 					compress_info: format::COMPRESS_NONE,
-					shape: [self.len() as u32, $elts],
+					shape: Shape::D2(self.len() as u32, $elts),
 				}
 			}
 		}
@@ -150,7 +150,7 @@ impl AsDataRef for str {
 			bytes: self.as_bytes(),
 			type_info: format::TYPE_PRIM_U8 | format::TYPE_DIM_SCALAR | format::TYPE_HINT_TEXT,
 			compress_info: 0,
-			shape: [self.len() as u32, 0],
+			shape: Shape::D1(self.len() as u32),
 		}
 	}
 }

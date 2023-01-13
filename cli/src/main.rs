@@ -1,55 +1,71 @@
 use std::fmt;
 use std::path::Path;
 
-fn main() {
+#[macro_use]
+mod macros;
 
-	let matches = clap::command!("udf")
+fn main() {
+	let app = clap::command!("udf")
 		.subcommand(
 			clap::Command::new("new")
-				.about("Creates an empty UDF file.")
+				.about("Create an empty UDF file")
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
 				.arg(clap::arg!(--id [id] "The identifier"))
 		)
 		.subcommand(
 			clap::Command::new("validate")
-				.about("Checks the UDF file for errors.")
+				.about("Check the UDF file for errors")
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
-				.arg(clap::arg!(-v --verbose "Verbose output"))
+				.arg(clap::arg!(--verbose "Verbose output"))
 		).subcommand(
 			clap::Command::new("print")
-				.about("Prints info about a dataset.")
+				.about("Print dataset or datatable information")
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
-				.arg(clap::arg!(<path> "Path to the dataset"))
-				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the dataset"))
+				.arg(clap::arg!([path] "Path to the dataset"))
 				.arg(clap::arg!(-p --"print-array" "Print the array contents"))
 				.arg(clap::arg!(-f --format [format] "Format option: one of hex, flat, array (default array)"))
 				.arg(clap::arg!(--"line-width" [line_width] "Sets the line width for the purpose of inserting line breaks (default 75)"))
-				.arg(clap::arg!(-v --verbose "Verbose output"))
+				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the root dataset"))
+				.arg(clap::arg!(--verbose "Verbose output"))
 		).subcommand(
 			clap::Command::new("export")
-				.about("Exports dataset or table.")
+				.about("Export a dataset or datatable")
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
 				.arg(clap::arg!(<path> "Path to the dataset"))
 				.arg(clap::arg!(<output> "Output path").allow_invalid_utf8(true))
-				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the dataset"))
 				.arg(clap::arg!(-f --format [format] "Format option: one of raw, npy (default raw)"))
-				.arg(clap::arg!(-v --verbose "Verbose output"))
+				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the root dataset"))
+				.arg(clap::arg!(--verbose "Verbose output"))
 		).subcommand(
 			clap::Command::new("import")
-				.about("Imports dataset.")
+				.about("Import a dataset")
+				.after_help(import::AFTER_HELP)
 				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
-				.arg(clap::arg!(<path> "Path to the dataset"))
-				.arg(clap::arg!(<import> "Import path").allow_invalid_utf8(true))
-				.arg(clap::arg!(--"create-new" [create_new] "Creates a new UDF file instead of editing an existing one"))
-				.arg(clap::arg!(--"file-offset" [file_offset] "File offset to the dataset"))
-				.arg(clap::arg!(-v --verbose "Verbose output"))
-		).get_matches();
+				.arg(clap::arg!(<import> "Path to import file describing the dataset").allow_invalid_utf8(true))
+				.arg(clap::arg!(--"create-new" "Create a new UDF file instead of updating an existing UDF file"))
+				.arg(clap::arg!(--"set-root" "Set the imported dataset as the root dataset"))
+				.arg(clap::arg!(--verbose "Verbose output"))
+		).subcommand(
+			clap::Command::new("set-root")
+				.about("Set the root dataset")
+				.after_help(set_root::AFTER_HELP)
+				.arg(clap::arg!(<file> "The UDF file").allow_invalid_utf8(true))
+				.arg(clap::arg!(<"file-offset"> "The file offset to assign"))
+		).arg_required_else_help(true);
 
+	let matches = app.get_matches();
 	if let Some(matches) = matches.subcommand_matches("new") {
 		let file = matches.value_of_os("file").unwrap();
-		let id = matches.value_of("id").map(|id| id.parse::<udf::PrintId>().expect("")).unwrap_or_default();
+		let file: &Path = file.as_ref();
+		let id = matches.value_of("id");
 
-		let mut writer = udf::FileIO::create(file, id.0).unwrap();
+		let udf::PrintId(id) = match id {
+			Some(id) => expect!(id.parse(), "Error parsing "{id:?}),
+			None => Default::default(),
+		};
+
+		let mut writer = expect!(udf::FileIO::create(file, id),
+			"Create UDF file='"{file.display()}"' id='"{udf::PrintId(id)}"'");
 		writer.write_header().unwrap();
 	}
 	else if let Some(matches) = matches.subcommand_matches("validate") {
@@ -72,10 +88,10 @@ fn main() {
 		print::run(opts);
 	}
 	else if let Some(matches) = matches.subcommand_matches("export") {
-		let file = matches.value_of_os("file").unwrap();
+		let file = matches.value_of_os("file").unwrap().as_ref();
 		let file_offset = value_of_t::<udf::format::FileOffset>(matches, "file-offset");
 		let path = matches.value_of("path").unwrap_or("");
-		let output = matches.value_of_os("output").unwrap();
+		let output = matches.value_of_os("output").unwrap().as_ref();
 		let format = match value_of_t::<export::Format>(matches, "format") {
 			Some(format) => format,
 			// Select a default format based on extension of the output
@@ -90,15 +106,21 @@ fn main() {
 		export::run(opts);
 	}
 	else if let Some(matches) = matches.subcommand_matches("import") {
-		let file = matches.value_of_os("file").unwrap();
-		let file_offset = value_of_t::<udf::format::FileOffset>(matches, "file-offset");
-		let path = matches.value_of("path").unwrap_or("");
-		let import = matches.value_of_os("import").unwrap();
+		let file = matches.value_of_os("file").unwrap().as_ref();
+		let import = matches.value_of_os("import").unwrap().as_ref();
 		let create_new = matches.is_present("create-new");
+		let set_root = matches.is_present("set-root");
 		let verbose = matches.is_present("verbose");
 
-		let ref opts = import::Options { file, file_offset, path, import, create_new, verbose };
+		let ref opts = import::Options { file, import, create_new, set_root, verbose };
 		import::run(opts);
+	}
+	else if let Some(matches) = matches.subcommand_matches("set-root") {
+		let file = matches.value_of_os("file").unwrap().as_ref();
+		let file_offset = value_of_t::<udf::format::FileOffset>(matches, "file-offset").unwrap();
+
+		let ref opts = set_root::Options { file, file_offset };
+		set_root::run(opts);
 	}
 	else {
 		unreachable!()
@@ -113,13 +135,11 @@ fn value_of_t<T>(matches: &clap::ArgMatches, name: &str) -> Option<T> where T: s
 	}
 }
 
-mod error;
-use self::error::StringError;
-
 mod validate;
 mod print;
 mod export;
 mod import;
+mod set_root;
 
 /*
 Ideas:

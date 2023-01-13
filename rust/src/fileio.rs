@@ -26,7 +26,7 @@ impl FileIO {
 		let header = format::UdfHeader {
 			magic: format::UdfHeader::MAGIC,
 			id,
-			next: mem::size_of::<format::UdfHeader>() as u64,
+			next: 0,
 			root: format::FileOffset::default(),
 			reserved: [0; 4],
 		};
@@ -101,9 +101,12 @@ impl FileIO {
 
 	/// Allocates a file offset.
 	pub fn allocate(&mut self, size: usize) -> format::FileOffset {
-		let offset = self.header.next;
+		let offset = match self.file.metadata() {
+			Ok(md) => md.len(),
+			Err(_) => return Default::default(),
+		};
+		let offset = (offset.wrapping_sub(1) & !0xf).wrapping_add(0x10);
 		let size = (size.wrapping_sub(1) & !0xf).wrapping_add(0x10) as u64;
-		self.header.next += size;
 		format::FileOffset { offset, size }
 	}
 

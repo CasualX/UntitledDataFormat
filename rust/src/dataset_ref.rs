@@ -84,7 +84,7 @@ impl<'a> DatasetRef<'a> {
 		let bytes = dataview::bytes(storage).get(..table.data_size as usize)?;
 		let type_info = table.type_info;
 		let compress_info = table.compress_info;
-		let shape = table.data_shape;
+		let shape = Shape::from_shape(type_info, table.data_shape);
 		Some(DataRef { bytes, type_info, compress_info, shape })
 	}
 

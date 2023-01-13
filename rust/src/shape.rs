@@ -1,5 +1,6 @@
 use std::{fmt, str};
 use crate::*;
+use format::{TYPE_DIM_MASK, TYPE_DIM_SCALAR, TYPE_DIM_1D, TYPE_DIM_2D, TYPE_DIM_3D};
 
 /// Shape.
 ///
@@ -12,9 +13,10 @@ use crate::*;
 /// * 8 bits for the third axis
 ///
 /// The total number of elements cannot exceed 2^64.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub enum Shape {
 	/// Scalar
+	#[default]
 	Scalar,
 	/// 1D
 	D1(u32),
@@ -31,24 +33,24 @@ pub enum Shape {
 impl Shape {
 	#[inline]
 	pub fn from_type_info(type_info: u16, shape: [u32; 2]) -> Shape {
-		match type_info & format::TYPE_DIM_MASK {
-			format::TYPE_DIM_SCALAR => Shape::Scalar,
-			format::TYPE_DIM_1D => Shape::D1(shape[0]),
-			format::TYPE_DIM_2D => Shape::D2(shape[0], shape[1] & 0xffffff),
-			format::TYPE_DIM_3D => Shape::D3(shape[0], shape[1] & 0xffffff, (shape[1] >> 24) as u8),
+		match type_info & TYPE_DIM_MASK {
+			TYPE_DIM_SCALAR => Shape::Scalar,
+			TYPE_DIM_1D => Shape::D1(shape[0]),
+			TYPE_DIM_2D => Shape::D2(shape[0], shape[1] & 0xffffff),
+			TYPE_DIM_3D => Shape::D3(shape[0], shape[1] & 0xffffff, (shape[1] >> 24) as u8),
 			_ => unreachable!()
 		}
 	}
 
 	#[inline]
 	pub fn from_shape(type_info: u16, shape: [u32; 2]) -> Shape {
-		let type_dims = type_info & format::TYPE_DIM_MASK;
+		let type_dims = type_info & TYPE_DIM_MASK;
 		let x = shape[0];
 		let y = shape[1] & 0xffffff;
 		let z = (shape[1] >> 24) as u8;
-		if z == 0 && type_dims < format::TYPE_DIM_3D {
-			if y == 0 && type_dims < format::TYPE_DIM_2D {
-				if x == 0 && type_dims < format::TYPE_DIM_1D {
+		if z == 0 && type_dims < TYPE_DIM_3D {
+			if y == 0 && type_dims < TYPE_DIM_2D {
+				if x == 0 && type_dims < TYPE_DIM_1D {
 					return Shape::Scalar;
 				}
 				return Shape::D1(x);
@@ -75,13 +77,23 @@ impl Shape {
 		Shape::D1(self.len() as u32)
 	}
 
-	/// Encodes the shape.
-	pub fn encode(&self) -> (u16, [u32; 2]) {
+	/// Returns the dimension as one of [`TYPE_DIM_SCALAR`], [`TYPE_DIM_1D`], [`TYPE_DIM_2D`] or [`TYPE_DIM_3D`].
+	pub fn dim(&self) -> u16 {
 		match self {
-			&Shape::Scalar => (format::TYPE_DIM_SCALAR, [0, 0]),
-			&Shape::D1(x) => (format::TYPE_DIM_1D, [x, 0]),
-			&Shape::D2(x, y) => (format::TYPE_DIM_2D, [x, y & 0xffffff]),
-			&Shape::D3(x, y, z) => (format::TYPE_DIM_3D, [x, y & 0xffffff | (z as u32) << 24]),
+			Shape::Scalar => TYPE_DIM_SCALAR,
+			Shape::D1(_) => TYPE_DIM_1D,
+			Shape::D2(_, _) => TYPE_DIM_2D,
+			Shape::D3(_, _, _) => TYPE_DIM_3D,
+		}
+	}
+
+	/// Encodes the shape.
+	pub fn encode(&self) -> [u32; 2] {
+		match self {
+			&Shape::Scalar => [0, 0],
+			&Shape::D1(x) => [x, 0],
+			&Shape::D2(x, y) => [x, y & 0xffffff],
+			&Shape::D3(x, y, z) => [x, y & 0xffffff | (z as u32) << 24],
 		}
 	}
 }

@@ -7,4 +7,5 @@ edition = "2021"
 dataview = "1.0"
 udf = { path = "../rust" }
 clap = { version = "3.2", features = ["cargo"] }
-ini_core = { version = "0.1.0" }
+ini_core = "0.2.0"
+fmtools = "0.1"

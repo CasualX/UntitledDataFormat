@@ -176,30 +176,36 @@ impl str::FromStr for PrintTypeInfo {
 	type Err = ParseError;
 	fn from_str(string: &str) -> Result<Self, ParseError> {
 		let mut split = string.split(":");
-		let hint = match split.next() {
-			Some(hint) => hint,
+		let prim = match split.next() {
+			Some(x) => x,
 			None => return Err(ParseError::InvalidFormat),
 		};
 		let dim = match split.next() {
 			Some(dim) => dim,
 			None => return Err(ParseError::InvalidFormat),
 		};
-		let prim = match split.next() {
-			Some(prim) => prim,
-			None => return Err(ParseError::InvalidFormat),
-		};
+		let hint = split.next();
+
+		// Now the full string must be parsed
+		if let Some(_) = split.next() {
+			return Err(ParseError::InvalidFormat);
+		}
+
 		let hint = match hint {
-			"none" => format::TYPE_HINT_NONE,
-			"text" => format::TYPE_HINT_TEXT,
-			"json" => format::TYPE_HINT_JSON,
-			"dataset" => format::TYPE_HINT_DATASET,
-			"index" => format::TYPE_HINT_INDEX,
-			"range" => format::TYPE_HINT_RANGE,
-			"coord" => format::TYPE_HINT_COORD,
-			"line" => format::TYPE_HINT_HATCH,
-			"transform" => format::TYPE_HINT_TRANSFORM,
-			"rgb" => format::TYPE_HINT_RGB,
-			_ => return Err(ParseError::InvalidFormat),
+			Some(hint) => match hint {
+				"none" => format::TYPE_HINT_NONE,
+				"text" => format::TYPE_HINT_TEXT,
+				"json" => format::TYPE_HINT_JSON,
+				"dataset" => format::TYPE_HINT_DATASET,
+				"index" => format::TYPE_HINT_INDEX,
+				"range" => format::TYPE_HINT_RANGE,
+				"coord" => format::TYPE_HINT_COORD,
+				"line" => format::TYPE_HINT_HATCH,
+				"transform" => format::TYPE_HINT_TRANSFORM,
+				"rgb" => format::TYPE_HINT_RGB,
+				_ => return Err(ParseError::InvalidFormat),
+			},
+			None => format::TYPE_HINT_NONE,
 		};
 		let dim = match dim {
 			"scalar" => format::TYPE_DIM_SCALAR,
@@ -209,7 +215,7 @@ impl str::FromStr for PrintTypeInfo {
 			_ => return Err(ParseError::InvalidFormat),
 		};
 		let prim = match prim {
-			"custom" => format::TYPE_PRIM_CUSTOM,
+			"?" => format::TYPE_PRIM_CUSTOM,
 			"u8" => format::TYPE_PRIM_U8,
 			"i8" => format::TYPE_PRIM_I8,
 			"u16" => format::TYPE_PRIM_U16,

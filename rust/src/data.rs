@@ -11,26 +11,14 @@ pub struct DataRef<'a> {
 	/// Compression applied to the data bytes.
 	pub compress_info: u16,
 	/// Length values of up to 3 dimensions.
-	pub shape: [u32; 2],
+	pub shape: Shape,
 }
 
 impl<'a> DataRef<'a> {
-	/// Returns the dimensions specified in `type_info`.
-	#[inline]
-	pub fn type_shape(&self) -> Shape {
-		Shape::from_type_info(self.type_info, self.shape)
-	}
-
-	/// Returns the dimensions specified by the shape.
-	#[inline]
-	pub fn shape(&self) -> Shape {
-		Shape::from_shape(self.type_info, self.shape)
-	}
-
 	/// Returns the total number of elements.
 	#[inline]
 	pub fn len(&self) -> usize {
-		self.shape().len()
+		self.shape.len()
 	}
 
 	/// Returns whether the data is compressed.
@@ -70,8 +58,7 @@ impl<'a> DataRef<'a> {
 			return Err(fmt::Error);
 		}
 
-		let shape = self.shape();
-		let len = shape.len();
+		let len = self.shape.len();
 		let avg_size;
 
 		// Concrete iterator instances
@@ -152,7 +139,7 @@ impl<'a> DataRef<'a> {
 			_ => return Err(fmt::Error),
 		};
 
-		let mut pa = PrintArray::new(shape);
+		let mut pa = PrintArray::new(self.shape);
 		pa.reserve(len, avg_size);
 		for item in items {
 			pa.push_fmt(format_args!("{}", item))?;
@@ -164,7 +151,7 @@ impl<'a> DataRef<'a> {
 	pub fn decompress(&self, storage: &'a mut Vec<u64>) -> DataRef<'a> {
 		match self.compress_info {
 			format::COMPRESS_SIMPLE_U32 => {
-				let len = self.shape().len();
+				let len = self.shape.len();
 				storage.resize_with(len / 2 + 1, Default::default);
 				let view_mut = dataview::DataView::from_mut(storage.as_mut_slice());
 				let tail_len = view_mut.tail_len::<u32>(0);
@@ -179,7 +166,7 @@ impl<'a> DataRef<'a> {
 				}
 			},
 			format::COMPRESS_SIMPLE_F32 => {
-				let len = self.shape().len();
+				let len = self.shape.len();
 				storage.resize_with(len / 2 + 1, Default::default);
 				let view_mut = dataview::DataView::from_mut(storage.as_mut_slice());
 				let tail_len = view_mut.tail_len::<f32>(0);

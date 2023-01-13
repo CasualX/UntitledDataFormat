@@ -15,7 +15,7 @@ pub fn build_string_array_utf8<'a, 't, T: Clone + IntoIterator<Item = &'t str>>(
 	}
 	DataRef {
 		type_info: format::TYPE_PRIM_U8 | format::TYPE_DIM_1D | format::TYPE_HINT_TEXT,
-		shape: Shape::D2(rows as u32, width as u32).encode().1,
+		shape: Shape::D2(rows as u32, width as u32),
 		bytes: data.as_slice(),
 		..Default::default()
 	}

@@ -15,13 +15,13 @@ impl Default for Format {
 	}
 }
 impl str::FromStr for Format {
-	type Err = super::StringError;
+	type Err = udf::ParseError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s {
 			"hex" => Ok(Format::HexDump),
 			"flat" => Ok(Format::FlatArray),
 			"array" => Ok(Format::NdArray),
-			_ => Err(super::StringError::from("invalid format")),
+			_ => Err(udf::ParseError::InvalidFormat),
 		}
 	}
 }
@@ -145,7 +145,7 @@ fn walk(file: &mut udf::FileIO, opts: &Options, fo: &udf::format::FileOffset, mu
 							};
 							ndprint.set_line_width(opts.line_width);
 							if matches!(opts.format, Format::FlatArray) {
-								ndprint.set_shape(data_ref.shape().flatten());
+								ndprint.set_shape(data_ref.shape.flatten());
 							}
 							let _ = write!(f, "```\n{}\n```", ndprint);
 						}

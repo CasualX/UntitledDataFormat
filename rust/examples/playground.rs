@@ -59,7 +59,7 @@ fn create_texts() -> udf::Dataset {
 		data: udf::DataRef {
 			bytes: s.as_bytes(),
 			compress_info: 0,
-			shape: [s.len() as u32, 0],
+			shape: udf::Shape::D1(s.len() as u32),
 			type_info: udf::format::TYPE_PRIM_U8 | udf::format::TYPE_DIM_SCALAR | udf::format::TYPE_HINT_TEXT,
 		},
 		..Default::default()
@@ -71,7 +71,7 @@ fn create_texts() -> udf::Dataset {
 		data: udf::DataRef {
 			bytes: utf16.as_bytes(),
 			compress_info: 0,
-			shape: [utf16.len() as u32, 0],
+			shape: udf::Shape::D1(utf16.len() as u32),
 			type_info: udf::format::TYPE_PRIM_U16 | udf::format::TYPE_DIM_SCALAR | udf::format::TYPE_HINT_TEXT,
 		},
 		..Default::default()
@@ -83,7 +83,7 @@ fn create_texts() -> udf::Dataset {
 		data: udf::DataRef {
 			bytes: utf32.as_bytes(),
 			compress_info: 0,
-			shape: [utf32.len() as u32, 0],
+			shape: udf::Shape::D1(utf32.len() as u32),
 			type_info: udf::format::TYPE_PRIM_U32 | udf::format::TYPE_DIM_SCALAR | udf::format::TYPE_HINT_TEXT,
 		},
 		..Default::default()
@@ -95,7 +95,7 @@ fn create_texts() -> udf::Dataset {
 		data: udf::DataRef {
 			bytes: slist8.0.as_bytes(),
 			compress_info: 0,
-			shape: [TEXT_LIST.len() as u32, slist8.1 as u32],
+			shape: udf::Shape::D2(TEXT_LIST.len() as u32, slist8.1 as u32),
 			type_info: udf::format::TYPE_PRIM_U8 | udf::format::TYPE_DIM_1D | udf::format::TYPE_HINT_TEXT,
 		},
 		..Default::default()
@@ -107,7 +107,7 @@ fn create_texts() -> udf::Dataset {
 		data: udf::DataRef {
 			bytes: slist16.as_bytes(),
 			compress_info: 0,
-			shape: [TEXT_LIST.len() as u32, slist8.1 as u32],
+			shape: udf::Shape::D2(TEXT_LIST.len() as u32, slist8.1 as u32),
 			type_info: udf::format::TYPE_PRIM_U16 | udf::format::TYPE_DIM_1D | udf::format::TYPE_HINT_TEXT,
 		},
 		..Default::default()
@@ -119,7 +119,7 @@ fn create_texts() -> udf::Dataset {
 		data: udf::DataRef {
 			bytes: slist32.as_bytes(),
 			compress_info: 0,
-			shape: [TEXT_LIST.len() as u32, slist8.1 as u32],
+			shape: udf::Shape::D2(TEXT_LIST.len() as u32, slist8.1 as u32),
 			type_info: udf::format::TYPE_PRIM_U32 | udf::format::TYPE_DIM_1D | udf::format::TYPE_HINT_TEXT,
 		},
 		..Default::default()

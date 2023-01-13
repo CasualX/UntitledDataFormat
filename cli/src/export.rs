@@ -1,6 +1,5 @@
 use std::{fs, str};
 use std::io::{self, Write};
-use std::ffi::OsStr;
 use std::path::Path;
 
 #[derive(Copy, Clone, Debug)]
@@ -9,6 +8,8 @@ pub enum Format {
 	Raw,
 	/// Numpy file format.
 	Npy,
+	/// Print array format.
+	Print,
 }
 impl Default for Format {
 	fn default() -> Self {
@@ -16,27 +17,30 @@ impl Default for Format {
 	}
 }
 impl str::FromStr for Format {
-	type Err = super::StringError;
+	type Err = udf::ParseError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s {
 			"raw" => Ok(Format::Raw),
 			"npy" => Ok(Format::Npy),
-			_ => Err(super::StringError::from("invalid format")),
+			"print" => Ok(Format::Print),
+			_ => Err(udf::ParseError::InvalidFormat),
 		}
 	}
 }
 
 pub struct Options<'a> {
-	pub file: &'a OsStr,
+	pub file: &'a Path,
 	pub file_offset: Option<udf::format::FileOffset>,
 	pub path: &'a str,
-	pub output: &'a OsStr,
+	pub output: &'a Path,
 	pub format: Format,
 	pub verbose: bool,
 }
 
 pub fn run(opts: &Options) {
-	let mut file = udf::FileIO::open(opts.file).expect("open error");
+	let mut file = expect!(
+		udf::FileIO::open(opts.file),
+		"Open UDF file='"{opts.file.display()}"'");
 
 	let mut fo = opts.file_offset.unwrap_or_else(|| file.root());
 	let mut path = opts.path;
@@ -51,9 +55,8 @@ pub fn run(opts: &Options) {
 
 		if path.is_empty() {
 			let output_dir = Path::new(opts.output);
-			if let Err(err) = std::fs::create_dir(output_dir) {
-				return eprintln!("Error creating output directory at {}: {}", output_dir.display(), err);
-			}
+			expect!(std::fs::create_dir(output_dir),
+				"Create output at '"{output_dir.display()}"'");
 
 			let mut ini = String::new();
 			{
@@ -82,9 +85,7 @@ pub fn run(opts: &Options) {
 			}
 
 			// Write the Dataset.ini summary
-			if let Err(err) = fs::write(output_dir.join("Dataset.ini"), ini) {
-				eprintln!("Error writing Dataset.ini: {}", err);
-			}
+			expect!(fs::write(output_dir.join("Dataset.ini"), ini), "Error writing Dataset.ini");
 
 			println!("Exported {:?} to {}", opts.path, Path::new(opts.output).display());
 			return;
@@ -169,16 +170,16 @@ fn export_table(opts: &Options, ds: &udf::DatasetRef<'_>, names: &udf::NamesRef<
 		Format::Npy => {
 			// Figure out the descr and shape for the data array
 			let (descr, shape) = match data.type_info & udf::format::TYPE_PRIM_MASK {
-				udf::format::TYPE_PRIM_U8 => ("|u1", data.shape()),
-				udf::format::TYPE_PRIM_I8 => ("|i1", data.shape()),
-				udf::format::TYPE_PRIM_U16 => ("<u2", data.shape()),
-				udf::format::TYPE_PRIM_I16 => ("<i2", data.shape()),
-				udf::format::TYPE_PRIM_U32 => ("<u4", data.shape()),
-				udf::format::TYPE_PRIM_I32 => ("<i4", data.shape()),
-				udf::format::TYPE_PRIM_U64 => ("<u8", data.shape()),
-				udf::format::TYPE_PRIM_I64 => ("<i8", data.shape()),
-				udf::format::TYPE_PRIM_F32 => ("<f4", data.shape()),
-				udf::format::TYPE_PRIM_F64 => ("<f8", data.shape()),
+				udf::format::TYPE_PRIM_U8 => ("|u1", data.shape),
+				udf::format::TYPE_PRIM_I8 => ("|i1", data.shape),
+				udf::format::TYPE_PRIM_U16 => ("<u2", data.shape),
+				udf::format::TYPE_PRIM_I16 => ("<i2", data.shape),
+				udf::format::TYPE_PRIM_U32 => ("<u4", data.shape),
+				udf::format::TYPE_PRIM_I32 => ("<i4", data.shape),
+				udf::format::TYPE_PRIM_U64 => ("<u8", data.shape),
+				udf::format::TYPE_PRIM_I64 => ("<i8", data.shape),
+				udf::format::TYPE_PRIM_F32 => ("<f4", data.shape),
+				udf::format::TYPE_PRIM_F64 => ("<f8", data.shape),
 				// Fall back to dumping the array as bytes
 				_ => ("|u1", udf::Shape::D1(data.bytes.len() as u32)),
 			};
@@ -225,27 +226,27 @@ fn export_table(opts: &Options, ds: &udf::DatasetRef<'_>, names: &udf::NamesRef<
 			fd.write_all(header.as_bytes())?;
 			fd.write_all(data.bytes)?;
 		},
+		Format::Print => unimplemented!(),
 	}
 
 	// Write descriptor
-	{
-		use std::fmt::Write;
-		let _ = write!(desc, "\n[{}]\n", udf::NameOrHash(names.lookup(table.key_name)));
-		let _ = write!(desc, "TypeInfo={}\n", udf::PrintTypeInfo(table.type_info));
+	use std::fmt::Write;
+	let _ = fmtools::write!(desc,
+		"\n["{udf::NameOrHash(names.lookup(table.key_name))}"]\n"
+		"TypeInfo="{udf::PrintTypeInfo(table.type_info)}"\n"
 		if table.compress_info != udf::format::COMPRESS_NONE {
-			let _ = write!(desc, "CompressInfo={}\n", table.compress_info);
+			"CompressInfo="{table.compress_info}"\n"
 		}
-		let _ = write!(desc, "Shape={}\n", udf::Shape::from_shape(table.type_info, table.data_shape));
-		let _ = write!(desc, "FileName={}:{}\n",
-			match opts.format { Format::Raw => "raw", Format::Npy => "npy" },
-			path.file_name().unwrap().to_string_lossy());
+		"Shape="{udf::Shape::from_shape(table.type_info, table.data_shape)}"\n"
+		"Source=" match opts.format { Format::Raw => "raw", Format::Npy => "npy", Format::Print => "print" }"\n"
+		"FilePath="{path.file_name().unwrap().to_string_lossy()}"\n"
 		if table.index_name != 0 {
-			let _ = write!(desc, "Index={}\n", udf::NameOrHash(names.lookup(table.index_name)));
+			"IndexName="{udf::NameOrHash(names.lookup(table.index_name))}"\n"
 		}
 		if table.related_name != 0 {
-			let _ = write!(desc, "Related={}\n", udf::NameOrHash(names.lookup(table.related_name)));
+			"RelatedName="{udf::NameOrHash(names.lookup(table.related_name))}"\n"
 		}
-	}
+	);
 
 	Ok(())
 }
