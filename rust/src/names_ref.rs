@@ -26,14 +26,6 @@ impl<'a> NamesRef<'a> {
 		NamesRef { entries: &[], strings: &[] }
 	}
 
-	#[inline]
-	pub(crate) fn from_data(data: &'a [u8], len: usize) -> Option<NamesRef<'a>> {
-		let view = dataview::DataView::from(data);
-		let names = view.try_slice::<format::LookupEntry>(0, len)?;
-		let strings = data.get(mem::size_of_val(names)..)?;
-		Some(NamesRef { entries: names, strings })
-	}
-
 	/// Creates an owned instance.
 	#[inline]
 	pub fn to_owned(&self) -> Names {

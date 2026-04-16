@@ -1,2 +1,6 @@
 [workspace]
 members = ['./rust', './cli']
+resolver = "2"
+
+[profile.release]
+panic = "abort"

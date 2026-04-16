@@ -11,13 +11,6 @@ struct PrintFloat<'a, T: ?Sized> {
 	seen_dot: bool,
 }
 
-impl<'a, T> From<&'a mut T> for PrintFloat<'a, T> {
-	#[inline]
-	fn from(inner: &'a mut T) -> Self {
-		PrintFloat { inner, seen_dot: false }
-	}
-}
-
 impl<'a, T: ?Sized + fmt::Write> fmt::Write for PrintFloat<'a, T> {
 	fn write_str(&mut self, s: &str) -> fmt::Result {
 		// This code makes assumptions about how Rust's standard formatting for floats behaves

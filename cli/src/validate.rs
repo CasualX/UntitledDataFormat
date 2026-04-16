@@ -1,6 +1,5 @@
-use std::{char, str};
+use std::char;
 use std::ffi::OsStr;
-use std::path::Path;
 use std::collections::{HashSet, HashMap};
 
 pub struct Options<'a> {
@@ -37,6 +36,28 @@ pub struct Validator {
 impl Validator {
 	pub fn new(file: udf::FileIO) -> Validator {
 		Validator { file, set: HashSet::new(), datasets: 0, warns: 0, errors: 0 }
+	}
+
+	fn find_table_in_chain<'a>(chain: Option<&'a Chain<'a>>, key_name: u32) -> Option<(udf::DatasetRef<'a>, &'a udf::format::TableDesc)> {
+		let mut chain = chain;
+		while let Some(link) = chain {
+			if let Some(table) = link.dataset.find_table(key_name) {
+				return Some((link.dataset, table));
+			}
+			chain = link.parent;
+		}
+		None
+	}
+
+	fn lookup_name_in_chain<'a>(chain: Option<&'a Chain<'a>>, key_name: u32) -> udf::NameOrHash<'a> {
+		let mut chain = chain;
+		while let Some(link) = chain {
+			if let Ok(name) = link.dataset.names.lookup(key_name) {
+				return udf::NameOrHash(Ok(name));
+			}
+			chain = link.parent;
+		}
+		udf::NameOrHash(Err(key_name))
 	}
 
 	pub fn run(&mut self, opts: &Options) {
@@ -115,6 +136,8 @@ impl Validator {
 			return;
 		}
 
+		let chain = Chain { parent, dataset };
+
 		// if dataset.tables.is_sorted_by_key(|table| table.key_name) {
 		// 	self.errors += 1;
 		// 	eprintln!("err: dataset tables not sorted by key_name!");
@@ -145,18 +168,38 @@ impl Validator {
 
 			self.validate_shape(&key_name, table);
 
-			let data = self.validate_data(&dataset, &key_name, table);
+			self.validate_data(&dataset, &key_name, table);
 
-			if table.index_name != 0 {
-				let index_name = udf::NameOrHash(names.lookup(table.index_name));
-				if index_name.0.is_err() {
+			let type_hint = table.type_info & udf::format::TYPE_HINT_MASK;
+			if matches!(type_hint, udf::format::TYPE_HINT_INDEX | udf::format::TYPE_HINT_RANGE) {
+				if table.index_name == 0 {
 					self.errors += 1;
-					eprintln!("err: table {} index_name={} not found", key_name, index_name);
+					eprintln!("err: table {} missing required index_name", key_name);
 				}
-				if table.key_name == table.index_name {
-					self.errors += 1;
-					eprintln!("err: index into itself");
+				else {
+					let index_name = Self::lookup_name_in_chain(Some(&chain), table.index_name);
+					let index_table = match Self::find_table_in_chain(Some(&chain), table.index_name) {
+						Some((_, index_table)) => index_table,
+						None => {
+							self.errors += 1;
+							eprintln!("err: table {} index_name={} not found", key_name, index_name);
+							continue;
+						},
+					};
+					if table.key_name == table.index_name {
+						self.errors += 1;
+						eprintln!("err: index into itself");
+					}
+					if index_table.type_info & udf::format::TYPE_DIM_MASK != udf::format::TYPE_DIM_1D {
+						self.errors += 1;
+						eprintln!("err: table {} index_name={} must refer to a 1D table", key_name, index_name);
+					}
 				}
+			}
+			else if table.index_name != 0 {
+				self.errors += 1;
+				let index_name = Self::lookup_name_in_chain(Some(&chain), table.index_name);
+				eprintln!("err: table {} uses index_name={} without an index or range hint", key_name, index_name);
 			}
 
 			// Validate the related table
@@ -170,7 +213,6 @@ impl Validator {
 		}
 
 		// Recursively walk file offset datatables
-		let chain = Chain { parent, dataset };
 		for table in dataset.tables {
 			if table.type_info == udf::format::T_FILE_OFFSET {
 				if let Some(data) = dataset.get_data_ref(table) {
@@ -183,8 +225,21 @@ impl Validator {
 		}
 	}
 
-	fn validate_data<'a>(&mut self, dataset: &udf::DatasetRef<'a>, key_name: &udf::NameOrHash, table: &udf::format::TableDesc) -> Option<udf::DataRef<'a>> {
-		dataset.get_data_ref(table)
+	fn validate_data<'a>(&mut self, dataset: &udf::DatasetRef<'a>, key_name: &udf::NameOrHash, table: &udf::format::TableDesc) {
+		let data_ref = match dataset.get_data_ref(table) {
+			Some(data_ref) => data_ref,
+			None => {
+				self.errors += 1;
+				eprintln!("err: table {} invalid data!", key_name);
+				return;
+			},
+		};
+
+		match table.type_info & udf::format::TYPE_HINT_MASK {
+			udf::format::TYPE_HINT_NONE => self.validate_hint_none(key_name, table, data_ref),
+			udf::format::TYPE_HINT_TEXT => self.validate_hint_text(key_name, table, data_ref),
+			_ => (),
+		}
 	}
 
 	// Check that the shape matches the data size
@@ -226,20 +281,12 @@ impl Validator {
 		}
 	}
 
-	fn validate_hint_none(&mut self, dataset: &udf::DatasetRef, key_name: &udf::NameOrHash, table: &udf::format::TableDesc) {
+	fn validate_hint_none<'a>(&mut self, _key_name: &udf::NameOrHash, _table: &udf::format::TableDesc, _data_ref: udf::DataRef<'a>) {
 
 	}
 
-	fn validate_hint_text(&mut self, dataset: &udf::DatasetRef, key_name: &udf::NameOrHash, table: &udf::format::TableDesc) {
+	fn validate_hint_text<'a>(&mut self, key_name: &udf::NameOrHash, table: &udf::format::TableDesc, data_ref: udf::DataRef<'a>) {
 		let prim_type = table.type_info & udf::format::TYPE_PRIM_MASK;
-		let data_ref = match dataset.get_data_ref(table) {
-			Some(data) => data,
-			None => {
-				self.errors += 1;
-				eprintln!("err: table {} invalid data!", key_name);
-				return;
-			},
-		};
 		match prim_type {
 			udf::format::TYPE_PRIM_I8 | udf::format::TYPE_PRIM_U8 => {
 				if let Err(err) = std::str::from_utf8(data_ref.as_slice::<u8>().unwrap()) {

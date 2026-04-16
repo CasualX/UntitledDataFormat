@@ -1,4 +1,4 @@
-use std::{fmt, mem, str};
+use std::{fmt, str};
 use crate::*;
 
 /// File size formatter.
@@ -247,11 +247,4 @@ impl<'a> fmt::Display for PrintHex<'a> {
 #[repr(transparent)]
 pub struct Final<T> {
 	pub(crate) inner: T,
-}
-
-impl<T> Final<T> {
-	#[inline]
-	pub(crate) fn from(inner: &T) -> &Final<T> {
-		unsafe { mem::transmute(inner) }
-	}
 }

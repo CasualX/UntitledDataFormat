@@ -12,7 +12,6 @@ mod simplu32;
 mod simplu16;
 mod simpf32;
 
-use dataview::Pod;
 
 pub use self::simplu32::SimpleU32;
 pub use self::simpf32::SimpleF32;

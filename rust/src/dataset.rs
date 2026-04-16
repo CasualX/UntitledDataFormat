@@ -88,7 +88,7 @@ impl Dataset {
 		return (old_len as u32, new_len as u32);
 	}
 
-	pub fn finalize(&mut self) -> Final<DatasetRef> {
+	pub fn finalize(&mut self) -> Final<DatasetRef<'_>> {
 		self.header.check = format::DatasetHeader::CHECK;
 		self.names.finalize();
 
