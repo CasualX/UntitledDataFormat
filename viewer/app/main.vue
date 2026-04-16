@@ -1,9 +1,10 @@
 
+<link rel="component" href="viewer.vue">
+
 <script>
 'use strict';
 
-var udf = null;
-import('./deps/udf.mjs').then(udf => (window.udf = udf));
+import * as udf from './deps/udf.mjs';
 
 function argv() {
 	let result = {};
@@ -16,15 +17,24 @@ function argv() {
 	return result;
 }
 
-var AppMain = {
-	name: 'app-main',
-	data() {
-		return {
-			reader: null,
-			status: "",
-		};
+window.udf = udf;
+
+new Vue({
+	el: '#app',
+	data: {
+		reader: null,
+		status: '',
 	},
 	methods: {
+		openReader(io, name) {
+			this.reader = window.udf$reader = new udf.UdfReader(io);
+			this.reader.name = name;
+			this.status = '';
+		},
+		handleOpenError(message) {
+			this.reader = window.udf$reader = null;
+			this.status = message;
+		},
 		fileInput(e) {
 			let files = [...e.target.files];
 			// Clears the file input otherwise the same file cannot be submitted again
@@ -35,8 +45,7 @@ var AppMain = {
 				return;
 			}
 			let file = files[0];
-			this.reader = window.udf$reader = new udf.UdfReader(file);
-			this.reader.name = file.name;
+			this.openReader(file, file.name);
 		},
 		dropFile(e) {
 			if (this.reader != null) {
@@ -49,8 +58,7 @@ var AppMain = {
 				return;
 			}
 			let file = files[0];
-			this.reader = window.udf$reader = new udf.UdfReader(new udf.BlobIO(file));
-			this.reader.name = file.name;
+			this.openReader(new udf.BlobIO(file), file.name);
 		},
 		closeFile(e) {
 			this.reader = window.udf$reader = null;
@@ -62,30 +70,40 @@ var AppMain = {
 		async sampleInput(event) {
 			let name = event.target.textContent;
 			let url = event.target.href;
-			let io;
-			if (window.location.protocol == 'file:') {
-				let response = await fetch(url);
-				let blob = await response.blob();
-				io = new udf.BlobIO(blob);
-				io.size = blob.size;
-			}
-			else {
-				io = new udf.UrlIO(url, {});
-
-				// Get the file size
-				let response = await fetch(url, { method: 'HEAD' });
-				let accept_ranges = response.headers.get('accept-ranges');
-				let content_length = response.headers.get('content-length');
-				if (accept_ranges == "bytes" && content_length != null) {
-					io.size = parseInt(content_length);
+			try {
+				let io;
+				if (window.location.protocol == 'file:') {
+					let response = await fetch(url);
+					if (!response.ok) {
+						throw new Error(`Sample ${name} is not available.`);
+					}
+					let blob = await response.blob();
+					io = new udf.BlobIO(blob);
+					io.size = blob.size;
 				}
+				else {
+					let response = await fetch(url, { method: 'HEAD' });
+					if (!response.ok) {
+						throw new Error(`Sample ${name} is not available.`);
+					}
+					io = new udf.UrlIO(url, {});
+
+					// Get the file size
+					let accept_ranges = response.headers.get('accept-ranges');
+					let content_length = response.headers.get('content-length');
+					if (accept_ranges == 'bytes' && content_length != null) {
+						io.size = parseInt(content_length, 10);
+					}
+				}
+				this.openReader(io, name);
 			}
-			this.reader = window.udf$reader = new udf.UdfReader(io);
-			this.reader.name = name;
+			catch (ex) {
+				console.error(`Opening sample ${name}`, ex);
+				this.handleOpenError(`Could not open sample ${name}.`);
+			}
 		},
 	},
 	created() {
-		// Make dropping files work...
 		function preventDefaults(e) {
 			e.preventDefault();
 		}
@@ -93,80 +111,77 @@ var AppMain = {
 			document.body.addEventListener(eventName, preventDefaults);
 		}
 	},
-	template: '#app-main',
-};
+});
 </script>
 
-<template id="app-main">
-	<div class="app-main" @drop="dropFile" @dragenter="">
-		<div class="header">
-			<div class="logo">
-				<svg viewBox="0 0 422 170" xmlns="http://www.w3.org/2000/svg">
-					<path
-						d="M40.6978 164.435C32.77 161.086 25.6421 156.267 19.5279 150.155C13.4165 144.041 8.61915 136.912 5.25 128.984C1.77246 120.754 0 112.027 0 103.04V0H33.9156V103.04C33.9156 121.078 48.605 135.768 66.6431 135.768C84.6812 135.768 99.3677 121.078 99.3677 103.04V0H133.285V103.04C133.285 112.027 131.512 120.754 128.035 128.984C124.686 136.912 119.87 144.041 113.755 150.155C107.641 156.267 100.513 161.063 92.5854 164.435C84.3559 167.912 75.6284 169.682 66.643 169.682C57.6548 169.682 48.9302 167.912 40.6978 164.435Z"
-						fill="currentColor"
-					/>
-					<path
-						d="M154.241 168.712V0H209.54C220.989 0 232.093 2.18115 242.549 6.50244C252.703 10.6919 261.817 16.7197 269.616 24.3882C277.459 32.1006 283.635 41.1299 287.936 51.1963C292.386 61.6304 294.653 72.7544 294.653 84.2476C294.653 95.7393 292.386 106.865 287.936 117.319C283.635 127.409 277.48 136.439 269.637 144.19C261.817 151.904 252.724 157.954 242.569 162.167C232.116 166.509 220.989 168.712 209.54 168.712L154.241 168.712ZM209.54 134.795C223.301 134.795 236.177 129.568 245.833 120.041C255.445 110.558 260.736 97.834 260.736 84.2476C260.736 70.6816 255.445 58.0225 245.854 48.583C236.221 39.1201 223.324 33.9141 209.54 33.9141H188.155V134.795H209.54Z"
-						fill="currentColor"
-					/>
-					<path
-						d="M311.178 168.495H345.092V103.257H421.995V71.0698H311.178V168.495ZM311.178 0V32.187H421.995V0H311.178Z"
-						fill="currentColor"
-					/>
-				</svg>
-				<span>Viewer</span>
-			</div>
-			<div></div>
-			<div v-if="reader != null" class="fn">{{ reader.name }}</div>
-			<div v-else></div>
-			<div v-if="reader != null" class="x" @click="closeFile">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-					stroke="currentColor"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-				</svg>
-			</div>
-			<div v-else></div>
+<div id="app" class="app-main" @drop="dropFile" @dragenter="">
+	<div class="header">
+		<div class="logo">
+			<svg viewBox="0 0 422 170" xmlns="http://www.w3.org/2000/svg">
+				<path
+					d="M40.6978 164.435C32.77 161.086 25.6421 156.267 19.5279 150.155C13.4165 144.041 8.61915 136.912 5.25 128.984C1.77246 120.754 0 112.027 0 103.04V0H33.9156V103.04C33.9156 121.078 48.605 135.768 66.6431 135.768C84.6812 135.768 99.3677 121.078 99.3677 103.04V0H133.285V103.04C133.285 112.027 131.512 120.754 128.035 128.984C124.686 136.912 119.87 144.041 113.755 150.155C107.641 156.267 100.513 161.063 92.5854 164.435C84.3559 167.912 75.6284 169.682 66.643 169.682C57.6548 169.682 48.9302 167.912 40.6978 164.435Z"
+					fill="currentColor"
+				/>
+				<path
+					d="M154.241 168.712V0H209.54C220.989 0 232.093 2.18115 242.549 6.50244C252.703 10.6919 261.817 16.7197 269.616 24.3882C277.459 32.1006 283.635 41.1299 287.936 51.1963C292.386 61.6304 294.653 72.7544 294.653 84.2476C294.653 95.7393 292.386 106.865 287.936 117.319C283.635 127.409 277.48 136.439 269.637 144.19C261.817 151.904 252.724 157.954 242.569 162.167C232.116 166.509 220.989 168.712 209.54 168.712L154.241 168.712ZM209.54 134.795C223.301 134.795 236.177 129.568 245.833 120.041C255.445 110.558 260.736 97.834 260.736 84.2476C260.736 70.6816 255.445 58.0225 245.854 48.583C236.221 39.1201 223.324 33.9141 209.54 33.9141H188.155V134.795H209.54Z"
+					fill="currentColor"
+				/>
+				<path
+					d="M311.178 168.495H345.092V103.257H421.995V71.0698H311.178V168.495ZM311.178 0V32.187H421.995V0H311.178Z"
+					fill="currentColor"
+				/>
+			</svg>
+			<span>Viewer</span>
 		</div>
-
-		<div class="m" v-if="reader == null">
-			<div class="dnd-container">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-					/>
-				</svg>
-				<label for="file-upload" class="link">
-					<span>Provide a UDF file</span>
-					<input @input="fileInput" id="file-upload" name="file-upload" type="file" class="sr-only" />
-				</label>
-				<span class="text-sm" style="margin-bottom: 8px">or drag and drop one anywhere on the page.</span>
-				<span class="text-sm description">Don't have a UDF file? Try one of the sample files:</span>
-				<div>
-					<template v-for="(name, index) in ['empty', 'sample', 'bunny', 'seahorse']">
-						{{ index != 0 ? ", " : "" }}
-						<a class="text-sm" :href="`samples/${name}.udf`" @click.prevent="sampleInput($event)">{{ name }}.udf</a>
-					</template>
-				</div>
-			</div>
+		<div></div>
+		<div v-if="reader != null" class="fn">{{ reader.name }}</div>
+		<div v-else></div>
+		<div v-if="reader != null" class="x" @click="closeFile">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke-width="1.5"
+				stroke="currentColor"
+			>
+				<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+			</svg>
 		</div>
-		<app-viewer v-if="reader != null" :reader="reader" @set-status="setStatusLine"></app-viewer>
-		<div class="footer">{{ status }}</div>
+		<div v-else></div>
 	</div>
-</template>
+
+	<div class="m" v-if="reader == null">
+		<div class="dnd-container">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke-width="1.5"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+				/>
+			</svg>
+			<label for="file-upload" class="link">
+				<span>Provide a UDF file</span>
+				<input @input="fileInput" id="file-upload" name="file-upload" type="file" class="sr-only" />
+			</label>
+			<span class="text-sm" style="margin-bottom: 8px">or drag and drop one anywhere on the page.</span>
+			<span class="text-sm description">Don't have a UDF file? Try one of the sample files:</span>
+			<div>
+				<template v-for="(name, index) in ['empty', 'sample', 'bunny', 'seahorse']">
+					{{ index != 0 ? ", " : "" }}
+					<a class="text-sm" :href="`samples/${name}.udf`" @click.prevent="sampleInput($event)">{{ name }}.udf</a>
+				</template>
+			</div>
+		</div>
+	</div>
+	<app-viewer v-if="reader != null" :reader="reader" @set-status="setStatusLine" @open-error="handleOpenError"></app-viewer>
+	<div class="footer">{{ status }}</div>
+</div>
 
 <style>
 @font-face {

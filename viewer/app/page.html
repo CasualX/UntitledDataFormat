@@ -4,31 +4,12 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>UDF Viewer</title>
-	<!-- <link rel="icon" type="image/svg+xml" href="./favicon.svg" /> -->
-	<script src="./deps/vue.prod.js"></script>
-	<script type="module" src="./deps/udf.mjs"></script>
-$STYLES$
+	<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+	<!-- STYLES -->
 </head>
 <body>
-$TEMPLATES$
-<div id="app">
-	<app-main></app-main>
-</div>
+<!-- TEMPLATES -->
 <noscript>UDF Viewer is a WebApp and requires JS.</noscript>
+<!-- SCRIPTS -->
 </body>
-$SCRIPTS$
-<script>
-Vue.createApp({
-	data() {
-		return {};
-	},
-}).component('app-main', AppMain)
-	.component('app-viewer', AppViewer)
-	.component('view-header', ViewHeader)
-	.component('view-dataset', ViewDataset)
-	.component('view-data-sets', ViewDataSets)
-	.component('view-data-grid', ViewDataGrid)
-	.component('view-data-text', ViewDataText)
-	.mount('#app');
-</script>
 </html>

@@ -2,7 +2,7 @@
 <script>
 'use strict';
 
-var ViewHeader = {
+Vue.component('view-header', {
 	name: 'view-header',
 	data() {
 		return {};
@@ -11,9 +11,6 @@ var ViewHeader = {
 		'reader',
 		'entry',
 		'props',
-	],
-	emits: [
-		'read-dataset',
 	],
 	methods: {
 		readDataset(fo) {
@@ -29,7 +26,7 @@ var ViewHeader = {
 		},
 	},
 	template: '#view-header',
-};
+});
 </script>
 
 <template id="view-header">

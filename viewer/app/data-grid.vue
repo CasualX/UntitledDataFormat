@@ -5,7 +5,7 @@
 const ROW_HEIGHT = 25;
 const VIRTUAL_ROWS = 160;
 
-var ViewDataGrid = {
+Vue.component('view-data-grid', {
 	name: 'view-data-grid',
 	data() {
 		return {
@@ -56,9 +56,8 @@ var ViewDataGrid = {
 		},
 	},
 	template: '#view-data-grid',
-};
+});
 </script>
-
 <template id="view-data-grid">
 	<div class="view-data-grid thin-sb" @scroll.passive="scrolled" ref="container">
 		<table v-if="desc.data_shape.length == 0" class="mono" ref="table">

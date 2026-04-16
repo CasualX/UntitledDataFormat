@@ -1,8 +1,11 @@
 
+<link rel="component" href="header.vue">
+<link rel="component" href="dataset.vue">
+
 <script>
 'use strict';
 
-var AppViewer = {
+Vue.component('app-viewer', {
 	name: 'app-viewer',
 	data() {
 		return {
@@ -13,9 +16,6 @@ var AppViewer = {
 	props: [
 		'reader',
 	],
-	emits: [
-		'set-status',
-	],
 	computed: {
 		selected() {
 			return this.entries[this.selected_index];
@@ -25,7 +25,7 @@ var AppViewer = {
 		openView(entry, lazy) {
 			let existing = this.entries[entry.key];
 			if (!existing) {
-				this.entries[entry.key] = entry;
+				Vue.set(this.entries, entry.key, entry);
 			}
 			if (!lazy) {
 				this.selected_index = entry.key;
@@ -38,7 +38,7 @@ var AppViewer = {
 			if (index == this.selected_index) {
 				this.selected_index = "header";
 			}
-			delete this.entries[index];
+			Vue.delete(this.entries, index);
 		},
 		setStatusLine(line) {
 			this.$emit('set-status', line);
@@ -85,11 +85,15 @@ var AppViewer = {
 		}
 		catch (ex) {
 			console.error("Reading header", ex);
-			this.setStatusLine(`Reading header... error: ${ex}`);
+			let name = this.reader && this.reader.name ? this.reader.name : 'file';
+			let message = String(ex).includes('Unknown magic number')
+				? `Could not open ${name}. The file is not a valid UDF file.`
+				: `Could not open ${name}: ${ex}`;
+			this.$emit('open-error', message);
 		}
 	},
 	template: '#app-viewer',
-};
+});
 </script>
 
 <template id="app-viewer">

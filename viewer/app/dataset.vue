@@ -1,8 +1,12 @@
 
+<link rel="component" href="data-sets.vue">
+<link rel="component" href="data-grid.vue">
+<link rel="component" href="data-text.vue">
+
 <script>
 'use strict';
 
-var ViewDataset = {
+Vue.component('view-dataset', {
 	name: 'view-dataset',
 	data() {
 		return {
@@ -14,10 +18,6 @@ var ViewDataset = {
 		'reader',
 		'entry',
 		'props',
-	],
-	emits: [
-		'read-dataset',
-		'set-status',
 	],
 	computed: {
 		viewer_component() {
@@ -52,10 +52,10 @@ var ViewDataset = {
 		},
 		getViewerComponent(desc, data) {
 			let { hint, dim, prim } = udf.decodeTypeInfo(desc.type_info);
-			if (typeof data == 'string') {
+			if (hint == udf.TYPE_HINT_TEXT || typeof data == 'string') {
 				return 'view-data-text';
 			}
-			if (hint == udf.TYPE_HINT_JSON || (data && (data.__proto__ == Object.prototype || data.__proto__ == Array.prototype))) {
+			if (hint == udf.TYPE_HINT_JSON || Array.isArray(data) || (data != null && Object.getPrototypeOf(data) == Object.prototype)) {
 				return 'view-data-text';
 			}
 			if (hint == udf.TYPE_HINT_DATASET) {
@@ -84,7 +84,7 @@ var ViewDataset = {
 		},
 	},
 	template: '#view-dataset',
-};
+});
 </script>
 
 <template id="view-dataset">

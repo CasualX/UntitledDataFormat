@@ -2,7 +2,7 @@
 <script>
 'use strict';
 
-var ViewDataText = {
+Vue.component('view-data-text', {
 	name: 'view-data-text',
 	props: [
 		'desc',
@@ -20,7 +20,7 @@ var ViewDataText = {
 		},
 	},
 	template: '#view-data-text',
-};
+});
 </script>
 
 <template id="view-data-text">

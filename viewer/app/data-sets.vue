@@ -2,7 +2,7 @@
 <script>
 'use strict';
 
-var ViewDataSets = {
+Vue.component('view-data-sets', {
 	name: 'view-data-sets',
 	data() {
 		return {};
@@ -10,9 +10,6 @@ var ViewDataSets = {
 	props: [
 		'desc',
 		'data',
-	],
-	emits: [
-		'read-dataset',
 	],
 	methods: {
 		getFileOffset(index, lazy) {
@@ -30,7 +27,7 @@ var ViewDataSets = {
 		},
 	},
 	template: '#view-data-sets',
-};
+});
 </script>
 
 <template id="view-data-sets">
